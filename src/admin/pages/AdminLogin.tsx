@@ -33,8 +33,12 @@ export default function AdminLogin() {
         throw new Error(data.error || "Login failed")
       }
 
-      // Store admin info in localStorage (token is in httpOnly cookie)
+      // Store admin info and token in localStorage
+      // Token is also in httpOnly cookie, but we store it for Authorization header fallback
       localStorage.setItem("adminInfo", JSON.stringify(data.adminMentor))
+      if (data.token) {
+        localStorage.setItem("adminToken", data.token)
+      }
 
       // Navigate to dashboard (replace login page in history)
       navigate(dashboardPath, { replace: true })

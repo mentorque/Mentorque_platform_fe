@@ -23,8 +23,16 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
 
   const checkAuth = async () => {
     try {
+      // Get token from localStorage for Authorization header
+      const token = localStorage.getItem('adminToken')
+      const headers: HeadersInit = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
       const res = await fetch(`${API_URL}${apiPrefix}/me`, {
         credentials: 'include',
+        headers,
       })
 
       if (res.ok) {

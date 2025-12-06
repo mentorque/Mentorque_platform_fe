@@ -102,8 +102,16 @@ export default function AdminDashboard() {
 
   const checkAuthAndLoadData = async () => {
     try {
+      // Get token from localStorage for Authorization header
+      const token = localStorage.getItem('adminToken')
+      const headers: HeadersInit = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
       const meRes = await fetch(`${API_URL}${apiPrefix}/me`, {
         credentials: 'include',
+        headers,
       })
 
       if (!meRes.ok) {
@@ -145,8 +153,16 @@ export default function AdminDashboard() {
 
     try {
       setLoadingStats(true)
+      // Get token from localStorage for Authorization header
+      const token = localStorage.getItem('adminToken')
+      const headers: HeadersInit = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
       const res = await fetch(`${API_URL}${apiPrefix}/stats`, {
         credentials: 'include',
+        headers,
       })
 
       if (res.ok) {
@@ -191,8 +207,16 @@ export default function AdminDashboard() {
         endpoint += `&hasMentor=${mentorFilter}`
       }
 
+      // Get token from localStorage for Authorization header
+      const token = localStorage.getItem('adminToken')
+      const headers: HeadersInit = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
       const res = await fetch(`${API_URL}${endpoint}`, {
         credentials: 'include',
+        headers,
       })
 
       if (res.ok) {
@@ -225,8 +249,16 @@ export default function AdminDashboard() {
     if (!currentAdminInfo?.isAdmin) return
 
     try {
+      // Get token from localStorage for Authorization header
+      const token = localStorage.getItem('adminToken')
+      const headers: HeadersInit = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
       const res = await fetch(`${API_URL}${apiPrefix}/mentors?page=${page}&limit=10`, {
         credentials: 'include',
+        headers,
       })
 
       if (res.ok) {
@@ -247,6 +279,9 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     try {
+      // Clear token from localStorage on logout
+      localStorage.removeItem('adminToken')
+      
       await fetch(`${API_URL}${apiPrefix}/logout`, {
         method: 'POST',
         credentials: 'include',
