@@ -373,6 +373,9 @@ export default function AdminUserDetail() {
 
   const handleLogout = async () => {
     try {
+      // Clear token from localStorage on logout
+      localStorage.removeItem('adminToken')
+      
       await fetch(`${API_URL}/api/admin/logout`, {
         method: 'POST',
         credentials: 'include',

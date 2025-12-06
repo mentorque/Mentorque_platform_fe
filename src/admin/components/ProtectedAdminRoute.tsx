@@ -100,6 +100,9 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
             <button
               onClick={async () => {
                 try {
+                  // Clear token from localStorage on logout
+                  localStorage.removeItem('adminToken')
+                  
                   await fetch(`${API_URL}${apiPrefix}/logout`, {
                     method: 'POST',
                     credentials: 'include',
@@ -117,6 +120,7 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
             </button>
             <button
               onClick={() => {
+                localStorage.removeItem('adminToken')
                 localStorage.removeItem('adminInfo')
                 navigate(loginPath, { replace: true })
               }}
