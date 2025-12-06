@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Briefcase, UserCheck, ShieldCheck, Shield, Video, Search, Filter, X } from 'lucide-react'
+import { Users, Briefcase, UserCheck, ShieldCheck, Shield, Video, Search, Filter, X, Trash2 } from 'lucide-react'
 import Pagination from '@/shared/ui/Pagination'
 import { StatsCardSkeleton, UserCardSkeleton } from '@/shared/ui/Skeleton'
 import AdminNavbar from '@/admin/components/AdminNavbar'
@@ -8,6 +8,7 @@ import MentorProfile from '@/admin/components/MentorProfile'
 import ManageApprovals from '@/admin/pages/ManageApprovals'
 import MentoringSessions from '@/admin/pages/MentoringSessions'
 import { useMentorRoute } from '@/admin/hooks/useMentorRoute'
+import toast from 'react-hot-toast'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
@@ -78,6 +79,8 @@ export default function AdminDashboard() {
     totalPages: 0,
     limit: 10,
   })
+  const [deletingMentor, setDeletingMentor] = useState<string | null>(null)
+  const [deleteMentorModal, setDeleteMentorModal] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
     checkAuthAndLoadData()
@@ -299,6 +302,47 @@ export default function AdminDashboard() {
     navigate(userPath)
   }
 
+  const handleDeleteMentor = async () => {
+    if (!deleteMentorModal) return
+
+    setDeletingMentor(deleteMentorModal.id)
+    try {
+      const token = localStorage.getItem('adminToken')
+      const headers: HeadersInit = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      console.log('Deleting mentor:', deleteMentorModal.id, 'using endpoint:', `${API_URL}${apiPrefix}/mentors/${deleteMentorModal.id}`)
+      
+      const res = await fetch(`${API_URL}${apiPrefix}/mentors/${deleteMentorModal.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers,
+      })
+
+      console.log('Delete mentor response status:', res.status, res.statusText)
+
+      if (res.ok) {
+        const data = await res.json()
+        console.log('Delete mentor success:', data)
+        toast.success('Mentor deleted successfully')
+        setDeleteMentorModal(null)
+        await loadMentors(mentorsPage)
+        await loadStats()
+      } else {
+        const error = await res.json().catch(() => ({ message: `HTTP ${res.status}: ${res.statusText}` }))
+        console.error('Delete mentor error response:', error)
+        toast.error(error.message || error.error || 'Failed to delete mentor')
+      }
+    } catch (error: any) {
+      console.error('Error deleting mentor:', error)
+      toast.error(error.message || 'Failed to delete mentor')
+    } finally {
+      setDeletingMentor(null)
+    }
+  }
+
   if (loading && !adminInfo) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex items-center justify-center">
@@ -475,7 +519,7 @@ export default function AdminDashboard() {
           </div>
 
         {/* Content */}
-        {activeTab === 'profile' ? (
+        {activeTab === 'profile' && !adminInfo.isAdmin ? (
           <MentorProfile adminInfo={adminInfo} onUpdate={checkAuthAndLoadData} />
         ) : activeTab === 'approvals' ? (
           <ManageApprovals />
@@ -507,7 +551,63 @@ export default function AdminDashboard() {
             totalItems={mentorsPagination.totalCount}
             onPageChange={setMentorsPage}
             itemsPerPage={mentorsPagination.limit}
+            onDeleteMentor={(id: string, name: string) => setDeleteMentorModal({ id, name })}
           />
+        )}
+
+        {/* Delete Mentor Confirmation Modal */}
+        {deleteMentorModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-md">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <Trash2 className="w-6 h-6 text-red-600" />
+                    Delete Mentor
+                  </h2>
+                  <button
+                    onClick={() => setDeleteMentorModal(null)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-gray-100">{deleteMentorModal.name}</span>? This will perform a soft delete and the mentor will be marked as deleted.
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={handleDeleteMentor}
+                    disabled={deletingMentor === deleteMentorModal.id}
+                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    {deletingMentor === deleteMentorModal.id ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        Delete Mentor
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setDeleteMentorModal(null)}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -693,6 +793,7 @@ function MentorsList({
   totalItems,
   onPageChange,
   itemsPerPage,
+  onDeleteMentor,
 }: {
   mentors: Mentor[]
   loading: boolean
@@ -701,6 +802,7 @@ function MentorsList({
   totalItems: number
   onPageChange: (page: number) => void
   itemsPerPage: number
+  onDeleteMentor: (id: string, name: string) => void
 }) {
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + mentors.length
@@ -738,8 +840,8 @@ function MentorsList({
                       key={mentor.id}
                       className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 hover:shadow-lg transition-shadow relative"
                     >
-                      <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                        <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                      <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                        <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
                           {itemNumber}
                         </span>
                       </div>
@@ -762,7 +864,7 @@ function MentorsList({
                         </div>
                       </div>
                       {mentor.expertise && (
-                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">
+                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
                           {mentor.expertise}
                         </p>
                       )}
@@ -771,9 +873,21 @@ function MentorsList({
                           {mentor.background}
                         </p>
                       )}
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {mentor._count.users} user{mentor._count.users !== 1 ? 's' : ''} assigned
-                      </p>
+                      <div className="flex items-center justify-between mt-3">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {mentor._count.users} user{mentor._count.users !== 1 ? 's' : ''} assigned
+                        </p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onDeleteMentor(mentor.id, mentor.name)
+                          }}
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          title="Delete mentor"
+                        >
+                          <Trash2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                        </button>
+                      </div>
                     </div>
                   )
                 })

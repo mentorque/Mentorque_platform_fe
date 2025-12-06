@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Check, ShieldCheck, User, UserCheck, AlertCircle } from 'lucide-react'
+import { Check, ShieldCheck, User, UserCheck, AlertCircle, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -27,6 +27,7 @@ export default function ManageApprovals() {
     type: 'user' | 'mentor'
     id: string
     name: string
+    action: 'verify' | 'decline'
   } | null>(null)
 
   useEffect(() => {
@@ -56,36 +57,65 @@ export default function ManageApprovals() {
   }
 
   const handleVerify = (type: 'user' | 'mentor', id: string, name: string) => {
-    setConfirmModal({ type, id, name })
+    setConfirmModal({ type, id, name, action: 'verify' })
   }
 
-  const confirmVerify = async () => {
+  const handleDecline = (type: 'user' | 'mentor', id: string, name: string) => {
+    setConfirmModal({ type, id, name, action: 'decline' })
+  }
+
+  const confirmAction = async () => {
     if (!confirmModal) return
 
     try {
       setVerifying(confirmModal.id)
-      const endpoint =
-        confirmModal.type === 'user'
-          ? `${API_URL}/api/admin/approvals/users/${confirmModal.id}`
-          : `${API_URL}/api/admin/approvals/mentors/${confirmModal.id}`
+      
+      if (confirmModal.action === 'decline') {
+        // For decline, we'll use DELETE method
+        const endpoint =
+          confirmModal.type === 'user'
+            ? `${API_URL}/api/admin/approvals/users/${confirmModal.id}`
+            : `${API_URL}/api/admin/approvals/mentors/${confirmModal.id}`
 
-      const res = await fetch(endpoint, {
-        method: 'PATCH',
-        credentials: 'include',
-      })
+        const res = await fetch(endpoint, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
 
-      if (res.ok) {
-        toast.success(
-          `${confirmModal.type === 'user' ? 'User' : 'Mentor'} verified successfully`
-        )
-        setConfirmModal(null)
-        await loadPendingApprovals()
+        if (res.ok) {
+          toast.success(
+            `${confirmModal.type === 'user' ? 'User' : 'Mentor'} declined successfully`
+          )
+          setConfirmModal(null)
+          await loadPendingApprovals()
+        } else {
+          throw new Error('Failed to decline')
+        }
       } else {
-        throw new Error('Failed to verify')
+        // Verify action
+        const endpoint =
+          confirmModal.type === 'user'
+            ? `${API_URL}/api/admin/approvals/users/${confirmModal.id}`
+            : `${API_URL}/api/admin/approvals/mentors/${confirmModal.id}`
+
+        const res = await fetch(endpoint, {
+          method: 'PATCH',
+          credentials: 'include',
+        })
+
+        if (res.ok) {
+          toast.success(
+            `${confirmModal.type === 'user' ? 'User' : 'Mentor'} verified successfully`
+          )
+          setConfirmModal(null)
+          await loadPendingApprovals()
+        } else {
+          throw new Error('Failed to verify')
+        }
       }
     } catch (error) {
-      console.error('Error verifying:', error)
-      toast.error('Failed to verify. Please try again.')
+      console.error('Error processing action:', error)
+      toast.error(`Failed to ${confirmModal.action === 'decline' ? 'decline' : 'verify'}. Please try again.`)
     } finally {
       setVerifying(null)
     }
@@ -132,7 +162,7 @@ export default function ManageApprovals() {
       {/* Unverified Users */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-6">
-          <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+          <User className="w-6 h-6 text-gray-600 dark:text-gray-400" />
           <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             Unverified Users ({unverifiedUsers.length})
           </h3>
@@ -148,7 +178,7 @@ export default function ManageApprovals() {
             {unverifiedUsers.map((user) => (
               <div
                 key={user.id}
-                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-gray-400 dark:hover:border-gray-600 transition-colors"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
@@ -161,23 +191,42 @@ export default function ManageApprovals() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleVerify('user', user.id, user.fullName || user.email)}
-                  disabled={verifying === user.id}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {verifying === user.id ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Verifying...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Verify User</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleVerify('user', user.id, user.fullName || user.email)}
+                    disabled={verifying === user.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {verifying === user.id ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Verify</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleDecline('user', user.id, user.fullName || user.email)}
+                    disabled={verifying === user.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {verifying === user.id ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Declining...</span>
+                      </>
+                    ) : (
+                      <>
+                        <X className="w-4 h-4" />
+                        <span>Decline</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -187,7 +236,7 @@ export default function ManageApprovals() {
       {/* Unverified Mentors */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-6">
-          <UserCheck className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+          <UserCheck className="w-6 h-6 text-gray-600 dark:text-gray-400" />
           <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             Unverified Mentors ({unverifiedMentors.length})
           </h3>
@@ -203,7 +252,7 @@ export default function ManageApprovals() {
             {unverifiedMentors.map((mentor) => (
               <div
                 key={mentor.id}
-                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-purple-500 dark:hover:border-purple-500 transition-colors"
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-gray-400 dark:hover:border-gray-600 transition-colors"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
@@ -214,23 +263,42 @@ export default function ManageApprovals() {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleVerify('mentor', mentor.id, mentor.name)}
-                  disabled={verifying === mentor.id}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {verifying === mentor.id ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Verifying...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Verify Mentor</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleVerify('mentor', mentor.id, mentor.name)}
+                    disabled={verifying === mentor.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {verifying === mentor.id ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Verify</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleDecline('mentor', mentor.id, mentor.name)}
+                    disabled={verifying === mentor.id}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {verifying === mentor.id ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        <span>Declining...</span>
+                      </>
+                    ) : (
+                      <>
+                        <X className="w-4 h-4" />
+                        <span>Decline</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -242,13 +310,13 @@ export default function ManageApprovals() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
             <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="w-6 h-6 text-yellow-500" />
+              <AlertCircle className={`w-6 h-6 ${confirmModal.action === 'decline' ? 'text-red-500' : 'text-yellow-500'}`} />
               <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Confirm Verification
+                {confirmModal.action === 'decline' ? 'Confirm Decline' : 'Confirm Verification'}
               </h3>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Are you sure you want to verify{' '}
+              Are you sure you want to {confirmModal.action === 'decline' ? 'decline' : 'verify'}{' '}
               <span className="font-semibold text-gray-900 dark:text-gray-100">
                 {confirmModal.name}
               </span>
@@ -262,11 +330,21 @@ export default function ManageApprovals() {
                 Cancel
               </button>
               <button
-                onClick={confirmVerify}
+                onClick={confirmAction}
                 disabled={verifying === confirmModal.id}
-                className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`flex-1 px-4 py-2 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  confirmModal.action === 'decline'
+                    ? 'bg-gray-600 hover:bg-gray-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
-                {verifying === confirmModal.id ? 'Verifying...' : 'Confirm Verify'}
+                {verifying === confirmModal.id
+                  ? confirmModal.action === 'decline'
+                    ? 'Declining...'
+                    : 'Verifying...'
+                  : confirmModal.action === 'decline'
+                  ? 'Confirm Decline'
+                  : 'Confirm Verify'}
               </button>
             </div>
           </div>

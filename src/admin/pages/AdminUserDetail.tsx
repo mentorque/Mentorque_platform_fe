@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { UserCircle, Check, Save, X, Calendar, Video, FileText, Target, ShieldCheck, Shield, Lock } from 'lucide-react'
+import { UserCircle, Check, Save, X, Calendar, Video, FileText, Target, ShieldCheck, Shield, Lock, Trash2 } from 'lucide-react'
 import JobStats from '@/shared/components/JobStats'
 import AdminNavbar from '@/admin/components/AdminNavbar'
 import AdminUserStatus from '@/admin/components/AdminUserStatus'
@@ -88,6 +88,15 @@ export default function AdminUserDetail() {
   const [isTogglingVerification, setIsTogglingVerification] = useState(false)
   const [eligibleCalls, setEligibleCalls] = useState<number[]>([])
   const [loadingEligibleCalls, setLoadingEligibleCalls] = useState(false)
+  const [timeFilter, setTimeFilter] = useState<'all' | '30days' | '7days'>('all')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  
+  // Scheduled sessions state
+  const [scheduledSessions, setScheduledSessions] = useState<any[]>([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
+  const [deleteSessionModal, setDeleteSessionModal] = useState<{ userId: string; callNumber: number } | null>(null)
+  const [isDeletingSession, setIsDeletingSession] = useState(false)
   
   // Pagination state for jobs
   const [jobsPage, setJobsPage] = useState(1)
@@ -108,9 +117,17 @@ export default function AdminUserDetail() {
       }
       if (activeTab === 'progress') {
         loadUserStatus()
+        loadScheduledSessions()
       }
     }
   }, [user?.id, jobsPage, activeTab])
+
+  // Reload eligible calls when modal opens
+  useEffect(() => {
+    if (showScheduleForm && user?.id) {
+      loadEligibleCalls()
+    }
+  }, [showScheduleForm, user?.id])
 
   const loadData = async () => {
     try {
@@ -233,9 +250,10 @@ export default function AdminUserDetail() {
           scheduledAt: '',
           scheduledTime: '',
         })
-        // Reload userStatus and eligible calls to reflect the new schedule
+        // Reload userStatus, eligible calls, and scheduled sessions to reflect the new schedule
         await loadUserStatus()
         await loadEligibleCalls()
+        await loadScheduledSessions()
         // Trigger a reload of AdminUserStatus
         window.dispatchEvent(new CustomEvent('userStatusUpdated'))
       } else {
@@ -272,15 +290,15 @@ export default function AdminUserDetail() {
         console.log('✅ Loaded eligible calls:', calls)
         setEligibleCalls(calls)
         
-        // Set the first eligible call as default if available and current selection is not in the list
+        // Always set the first eligible call as default when calls are loaded
         if (calls.length > 0) {
+          // Reset to first eligible call if current selection is not in the list
           if (!calls.includes(scheduleForm.callNumber)) {
             setScheduleForm(prev => ({ ...prev, callNumber: calls[0] }))
           }
-        }
-        
-        if (calls.length === 0) {
-          toast.error('No eligible calls available for this user')
+        } else {
+          // Reset to 1 if no eligible calls
+          setScheduleForm(prev => ({ ...prev, callNumber: 1 }))
         }
       } else {
         const errorData = await res.json().catch(() => ({}))
@@ -331,6 +349,64 @@ export default function AdminUserDetail() {
     setSelectedMentorId(user?.mentorId || null)
     setShowMentorSelector(false)
   }
+
+  const loadScheduledSessions = async () => {
+    if (!user?.id) return
+    
+    try {
+      setLoadingSessions(true)
+      const res = await fetch(`${API_URL}${apiPrefix}/users/${user.id}/scheduled-calls`, {
+        credentials: 'include',
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setScheduledSessions(data.sessions || [])
+      } else {
+        console.error('Failed to load scheduled sessions')
+        setScheduledSessions([])
+      }
+    } catch (error) {
+      console.error('Error loading scheduled sessions:', error)
+      setScheduledSessions([])
+    } finally {
+      setLoadingSessions(false)
+    }
+  }
+
+  const handleDeleteSession = async () => {
+    if (!deleteSessionModal || !isAdmin) return
+
+    try {
+      setIsDeletingSession(true)
+      const res = await fetch(
+        `${API_URL}${apiPrefix}/mentoring-sessions/${deleteSessionModal.userId}/${deleteSessionModal.callNumber}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+        }
+      )
+
+      if (res.ok) {
+        toast.success('Session deleted successfully')
+        setDeleteSessionModal(null)
+        await loadScheduledSessions()
+        await loadUserStatus()
+        await loadEligibleCalls()
+        // Trigger a reload of AdminUserStatus
+        window.dispatchEvent(new Event('userStatusUpdated'))
+      } else {
+        const error = await res.json()
+        toast.error(error.message || 'Failed to delete session')
+      }
+    } catch (error: any) {
+      console.error('Error deleting session:', error)
+      toast.error(error.message || 'Failed to delete session')
+    } finally {
+      setIsDeletingSession(false)
+    }
+  }
+
 
   const handleToggleVerification = async () => {
     if (!isAdmin || !user || !password) {
@@ -385,6 +461,32 @@ export default function AdminUserDetail() {
     } finally {
       localStorage.removeItem('adminInfo')
       navigate('/admin')
+    }
+  }
+
+  const handleDeleteUser = async () => {
+    if (!isAdmin || !user) return
+
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`${API_URL}${apiPrefix}/users/${user.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (res.ok) {
+        toast.success('User deleted successfully')
+        setShowDeleteModal(false)
+        navigate('/admin/dashboard')
+      } else {
+        const error = await res.json()
+        toast.error(error.message || 'Failed to delete user')
+      }
+    } catch (error: any) {
+      console.error('Error deleting user:', error)
+      toast.error('Failed to delete user')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -474,17 +576,26 @@ export default function AdminUserDetail() {
                   {user.fullName || user.email}
                 </h1>
                   {isAdmin && (
-                    <button
-                      onClick={() => setShowPasswordModal(true)}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                      title={user.verifiedByAdmin ? 'Verified - Click to revoke' : 'Not verified - Click to verify'}
-                    >
-                      {user.verifiedByAdmin ? (
-                        <ShieldCheck className="w-6 h-6 text-green-500" />
-                      ) : (
-                        <Shield className="w-6 h-6 text-gray-400" />
-                      )}
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setShowPasswordModal(true)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        title={user.verifiedByAdmin ? 'Verified - Click to revoke' : 'Not verified - Click to verify'}
+                      >
+                        {user.verifiedByAdmin ? (
+                          <ShieldCheck className="w-6 h-6 text-green-500" />
+                        ) : (
+                          <Shield className="w-6 h-6 text-gray-400" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteModal(true)}
+                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        title="Delete user"
+                      >
+                        <Trash2 className="w-6 h-6 text-red-500" />
+                      </button>
+                    </>
                   )}
                 </div>
                 <p className="text-gray-600 dark:text-gray-400">{user.email}</p>
@@ -516,26 +627,14 @@ export default function AdminUserDetail() {
                   {!showMentorSelector ? (
                     <>
                       <button
-                        onClick={async () => {
-                          // Load eligible calls before opening modal
-                          await loadEligibleCalls()
-                          // Open modal after loading (even if no eligible calls, to show message)
+                        onClick={() => {
+                          // Open modal - eligible calls will be loaded via useEffect
                           setShowScheduleForm(true)
                         }}
-                        disabled={loadingEligibleCalls}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
                       >
-                        {loadingEligibleCalls ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            <span>Loading...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Video className="w-4 h-4" />
-                            <span>Schedule Call</span>
-                          </>
-                        )}
+                        <Video className="w-4 h-4" />
+                        <span>Schedule Call</span>
                       </button>
                       <button
                         onClick={() => setShowMentorSelector(true)}
@@ -702,13 +801,125 @@ export default function AdminUserDetail() {
 
         {/* Tab Content */}
         {activeTab === 'progress' ? (
-          <div className="mb-6">
-            <AdminUserStatus userId={user.id} isAdmin={isAdmin} />
-          </div>
+          <>
+            <div className="mb-6">
+              <AdminUserStatus userId={user.id} isAdmin={isAdmin} />
+            </div>
+
+            {/* Scheduled Mentoring Sessions */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  Mentoring Sessions
+                </h2>
+                {scheduledSessions.length > 0 && (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {scheduledSessions.length} session{scheduledSessions.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+
+              {loadingSessions ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : scheduledSessions.length === 0 ? (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                  No sessions scheduled yet
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {scheduledSessions.map((session) => {
+                    const isPast = session.isPast || session.completedAt
+                    return (
+                      <div
+                        key={session.id}
+                        className={`flex items-center justify-between p-4 border rounded-lg transition-all ${
+                          isPast
+                            ? 'border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 scale-95 opacity-75'
+                            : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`flex items-center justify-center w-10 h-10 rounded-full font-bold ${
+                            isPast
+                              ? 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-sm'
+                              : 'bg-blue-600 text-white'
+                          }`}>
+                            {session.callNumber}
+                          </div>
+                          <div>
+                            <p className={`font-semibold ${
+                              isPast
+                                ? 'text-gray-600 dark:text-gray-400 text-sm'
+                                : 'text-gray-900 dark:text-gray-100'
+                            }`}>
+                              Call {session.callNumber}
+                              {session.completedAt && (
+                                <span className="ml-2 text-xs bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded">
+                                  Completed
+                                </span>
+                              )}
+                            </p>
+                            <p className={`flex items-center gap-2 mt-1 ${
+                              isPast
+                                ? 'text-gray-500 dark:text-gray-500 text-xs'
+                                : 'text-gray-600 dark:text-gray-400 text-sm'
+                            }`}>
+                              <Calendar className={`${isPast ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                              {new Date(session.scheduledAt).toLocaleString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                            </p>
+                            {session.googleMeetLink && (
+                              <a
+                                href={session.googleMeetLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-1 mt-1 hover:underline ${
+                                  isPast
+                                    ? 'text-gray-500 dark:text-gray-500 text-xs'
+                                    : 'text-blue-600 dark:text-blue-400 text-sm'
+                                }`}
+                              >
+                                <Video className={`${isPast ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                                Join Meeting
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setDeleteSessionModal({ userId: session.userId, callNumber: session.callNumber })}
+                            className={`text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors ${
+                              isPast ? 'opacity-50' : ''
+                            }`}
+                            title="Delete session"
+                          >
+                            <Trash2 className={`${isPast ? 'w-4 h-4' : 'w-5 h-5'}`} />
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </>
         ) : (
           <>
             {/* Job Stats Component - Using current jobs for display */}
-        <JobStats jobs={jobs} goalPerDay={user.goalPerDay || 3} />
+        <JobStats 
+          jobs={jobs} 
+          goalPerDay={user.goalPerDay || 3}
+          timeFilter={timeFilter}
+          onTimeFilterChange={setTimeFilter}
+        />
 
             {/* Jobs List with Pagination */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
@@ -805,9 +1016,10 @@ export default function AdminUserDetail() {
                       Call Number
                     </label>
                     <select
-                      value={scheduleForm.callNumber}
+                      value={eligibleCalls.includes(scheduleForm.callNumber) ? scheduleForm.callNumber : (eligibleCalls.length > 0 ? eligibleCalls[0] : '')}
                       onChange={(e) => setScheduleForm({ ...scheduleForm, callNumber: parseInt(e.target.value) })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      disabled={loadingEligibleCalls || eligibleCalls.length === 0}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loadingEligibleCalls ? (
                         <option value="">Loading eligible calls...</option>
@@ -821,6 +1033,11 @@ export default function AdminUserDetail() {
                         <option value="">No eligible calls available</option>
                       )}
                     </select>
+                    {!loadingEligibleCalls && eligibleCalls.length === 0 && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        No calls available for scheduling. Complete required milestones or all unlocked calls may already have future sessions scheduled.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -903,6 +1120,61 @@ export default function AdminUserDetail() {
         </div>
         )}
 
+        {/* Delete User Confirmation Modal */}
+        {isAdmin && showDeleteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-md">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <Trash2 className="w-6 h-6 text-red-600" />
+                    Delete User
+                  </h2>
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-gray-100">{user?.fullName || user?.email}</span>? This will perform a soft delete and the user will be marked as deleted.
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={handleDeleteUser}
+                    disabled={isDeleting}
+                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        Delete User
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Password Confirmation Modal for Verification Toggle */}
         {isAdmin && showPasswordModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -976,6 +1248,62 @@ export default function AdminUserDetail() {
                         setPassword('')
                       }}
                       className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Session Confirmation Modal */}
+        {deleteSessionModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-md">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <Trash2 className="w-6 h-6 text-red-600" />
+                    Delete Session
+                  </h2>
+                  <button
+                    onClick={() => setDeleteSessionModal(null)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Are you sure you want to delete Call {deleteSessionModal.callNumber}? This will permanently remove the scheduled session data from the database.
+                  </p>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={handleDeleteSession}
+                      disabled={isDeletingSession}
+                      className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      {isDeletingSession ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setDeleteSessionModal(null)}
+                      disabled={isDeletingSession}
+                      className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
                       <X className="w-4 h-4" />
                       Cancel

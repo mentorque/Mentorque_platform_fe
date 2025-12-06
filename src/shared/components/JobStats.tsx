@@ -12,15 +12,37 @@ interface AppliedJob {
 interface JobStatsProps {
   jobs: AppliedJob[]
   goalPerDay?: number
+  timeFilter?: 'all' | '30days' | '7days'
+  onTimeFilterChange?: (filter: 'all' | '30days' | '7days') => void
 }
 
-export default function JobStats({ jobs, goalPerDay = 3 }: JobStatsProps) {
+export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onTimeFilterChange }: JobStatsProps) {
+  // Filter jobs based on time filter
+  const getFilteredJobs = () => {
+    if (timeFilter === 'all') return jobs
+    
+    const now = new Date()
+    const filterDate = new Date()
+    
+    if (timeFilter === '30days') {
+      filterDate.setDate(now.getDate() - 30)
+    } else if (timeFilter === '7days') {
+      filterDate.setDate(now.getDate() - 7)
+    }
+    
+    return jobs.filter(job => {
+      const jobDate = new Date(job.appliedDate)
+      return jobDate >= filterDate
+    })
+  }
+  
+  const filteredJobs = getFilteredJobs()
   // Calculate streak data
   const calculateStreakData = () => {
-    if (jobs.length === 0) return { currentStreak: 0, todayCount: 0, needToday: goalPerDay }
+    if (filteredJobs.length === 0) return { currentStreak: 0, todayCount: 0, needToday: goalPerDay }
 
     const jobsByDate: { [key: string]: number } = {}
-    jobs.forEach((job) => {
+    filteredJobs.forEach((job) => {
       const date = new Date(job.appliedDate).toISOString().split('T')[0]
       jobsByDate[date] = (jobsByDate[date] || 0) + 1
     })
@@ -59,7 +81,7 @@ export default function JobStats({ jobs, goalPerDay = 3 }: JobStatsProps) {
   // Prepare jobs per day data
   const getJobsPerDayData = () => {
     const dateCounts: { [key: string]: number } = {}
-    jobs.forEach((job) => {
+    filteredJobs.forEach((job) => {
       const date = new Date(job.appliedDate).toISOString().split('T')[0]
       dateCounts[date] = (dateCounts[date] || 0) + 1
     })
@@ -67,13 +89,18 @@ export default function JobStats({ jobs, goalPerDay = 3 }: JobStatsProps) {
     const dates = Object.keys(dateCounts).sort()
     if (dates.length === 0) return []
 
-    const startDate = new Date(dates[0])
+    const startDate = timeFilter === '7days' 
+      ? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      : timeFilter === '30days'
+      ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      : new Date(dates[0])
     const endDate = new Date()
 
     const result: { date: string; applications: number; displayDate: string }[] = []
     const currentDate = new Date(startDate)
+    const maxDays = timeFilter === '7days' ? 7 : timeFilter === '30days' ? 30 : 30
 
-    while (currentDate <= endDate && result.length < 30) {
+    while (currentDate <= endDate && result.length < maxDays) {
       const dateStr = currentDate.toISOString().split('T')[0]
       const displayDate = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       result.push({
@@ -84,13 +111,13 @@ export default function JobStats({ jobs, goalPerDay = 3 }: JobStatsProps) {
       currentDate.setDate(currentDate.getDate() + 1)
     }
 
-    return result.slice(-30)
+    return result
   }
 
   // Prepare jobs by status data
   const getJobsByStatusData = () => {
     const statusCounts: { [key: string]: number } = {}
-    jobs.forEach((job) => {
+    filteredJobs.forEach((job) => {
       statusCounts[job.status] = (statusCounts[job.status] || 0) + 1
     })
 
@@ -116,6 +143,45 @@ export default function JobStats({ jobs, goalPerDay = 3 }: JobStatsProps) {
 
   return (
     <div className="space-y-6">
+      {/* Time Filter */}
+      {onTimeFilterChange && (
+        <div className="flex items-center gap-3 mb-4">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filter:</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onTimeFilterChange('all')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                timeFilter === 'all'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              All Time
+            </button>
+            <button
+              onClick={() => onTimeFilterChange('30days')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                timeFilter === '30days'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              30 Days
+            </button>
+            <button
+              onClick={() => onTimeFilterChange('7days')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                timeFilter === '7days'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              7 Days
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Streak & Activity Card */}
       <div className="mb-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-shadow duration-300 p-6">
         <div className="flex items-center justify-between">
@@ -168,7 +234,7 @@ export default function JobStats({ jobs, goalPerDay = 3 }: JobStatsProps) {
               </div>
               <div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                  {jobs.length}
+                  {filteredJobs.length}
                 </div>
                 <div className="text-sm font-semibold text-slate-600 dark:text-slate-400">
                   Career Moves 🚀
@@ -237,7 +303,7 @@ export default function JobStats({ jobs, goalPerDay = 3 }: JobStatsProps) {
       </div>
 
       {/* Analytics Charts Section */}
-      {jobs.length > 0 && (
+      {filteredJobs.length > 0 && (
         <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Jobs Applied Per Day Chart */}
           <div className="bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 dark:from-gray-800 dark:via-blue-950/20 dark:to-indigo-950/30 rounded-2xl border border-blue-200/50 dark:border-blue-800/30 shadow-xl hover:shadow-2xl transition-all duration-300 p-6 backdrop-blur-sm">
@@ -250,7 +316,7 @@ export default function JobStats({ jobs, goalPerDay = 3 }: JobStatsProps) {
                   Application Trend
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                  Jobs applied per day (Last 30 days)
+                  Jobs applied per day {timeFilter === '7days' ? '(Last 7 days)' : timeFilter === '30days' ? '(Last 30 days)' : '(All time)'}
                 </p>
               </div>
             </div>

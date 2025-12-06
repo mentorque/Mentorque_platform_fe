@@ -280,39 +280,40 @@ export default function UserProgress({ scheduledCalls = [] }: UserProgressProps 
   if (!status || !nextMentorCall) return null
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Your Progress</h2>
-        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-500 transition-all duration-500"
-            style={{ width: `${progressPercentage}%` }}
-          />
-        </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-          {Math.round(progressPercentage)}% Complete
-        </p>
-      </div>
+    <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800 rounded-3xl shadow-2xl border-2 border-indigo-200 dark:border-gray-700 p-8 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-400/20 to-orange-400/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
+      <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl -ml-24 -mb-24"></div>
+      
+      <div className="relative z-10">
 
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-6">
-          <Flag className={`w-6 h-6 ${isBooked ? 'text-green-500' : isEligible ? 'text-green-500' : 'text-gray-400'}`} />
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          <div className={`relative ${isBooked || isEligible ? 'animate-pulse' : ''}`}>
+            <div className={`absolute inset-0 rounded-full ${
+              isBooked || isEligible ? 'bg-green-400/30 animate-ping' : ''
+            }`}></div>
+            <Flag className={`relative w-8 h-8 ${isBooked ? 'text-green-500' : isEligible ? 'text-green-500' : 'text-gray-400'}`} />
+          </div>
+          <h3 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
             {scheduledCalls.length > 0 ? 'Next Available Call' : nextMentorCall.label}
           </h3>
           {isBooked && (
-            <Check className="w-6 h-6 text-green-500" />
+            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full shadow-lg">
+              <Check className="w-5 h-5 text-white" />
+              <span className="text-white font-semibold text-sm">Completed!</span>
+            </div>
           )}
           {isEligible && !isBooked && !isScheduled && (
-            <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-sm font-medium">
-              Ready!
+            <span className="px-4 py-2 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full text-sm font-bold shadow-lg animate-pulse">
+              🎉 Ready!
             </span>
           )}
         </div>
 
         {scheduledCalls.length > 0 && (
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-6">
-            <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl p-6 mb-6 shadow-xl border-2 border-blue-400 transform hover:scale-[1.02] transition-transform">
+            <p className="text-sm text-white leading-relaxed font-medium">
               You have {scheduledCalls.length} call{scheduledCalls.length > 1 ? 's' : ''} scheduled above. 
               {nextMentorCall && !isScheduled && (
                 <> After your scheduled call{scheduledCalls.length > 1 ? 's' : ''} {scheduledCalls.length > 1 ? 'are' : 'is'} completed, you'll be able to work towards your {nextMentorCall.label.toLowerCase()}.</>
@@ -325,40 +326,40 @@ export default function UserProgress({ scheduledCalls = [] }: UserProgressProps 
         )}
 
         {!isBooked && !isEligible && currentMilestones.length > 0 && (
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 mb-6 border border-gray-200 dark:border-gray-600">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 mb-6 border-2 border-indigo-200 dark:border-gray-700 shadow-xl">
+            <p className="text-base md:text-lg text-gray-700 dark:text-gray-300 mb-6 leading-relaxed font-medium">
               {(nextMentorCall as any)?.dynamicMessage || 
                 `Before you meet your mentor for your ${nextMentorCall?.label.toLowerCase() || 'mentor call'}, our team will ensure that these milestones are completed: ${currentMilestones.map(m => m.label).join(', ')}. We're here to guide you through each step and ensure everything is in place for a productive mentoring session.`
               }
             </p>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {currentMilestones.map((milestone: { id: string; label: string; icon: any; completed: boolean }) => {
                 const Icon = milestone.icon
                 return (
                   <div
                     key={milestone.id}
-                    className={`flex items-center gap-4 p-4 rounded-lg transition-all ${
+                    className={`flex items-center gap-4 p-5 rounded-xl transition-all transform hover:scale-[1.02] ${
                       milestone.completed
-                        ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500'
-                        : 'bg-white dark:bg-gray-800 border-l-4 border-gray-300 dark:border-gray-600'
+                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-2 border-green-400 dark:border-green-600 shadow-lg'
+                        : 'bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 shadow-md'
                     }`}
                   >
                     <div
-                      className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg transition-all ${
                         milestone.completed
-                          ? 'bg-blue-500'
-                          : 'bg-gray-300 dark:bg-gray-600'
+                          ? 'bg-gradient-to-br from-green-400 to-emerald-500 animate-pulse'
+                          : 'bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700'
                       }`}
                     >
                       {milestone.completed ? (
-                        <Check className="w-6 h-6 text-white" />
+                        <Check className="w-7 h-7 text-white" />
                       ) : (
-                        <Icon className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                        <Icon className="w-7 h-7 text-white" />
                       )}
                     </div>
                     <div className="flex-1">
                       <p
-                        className={`font-semibold text-base ${
+                        className={`font-bold text-lg ${
                           milestone.completed
                             ? 'text-gray-900 dark:text-gray-100'
                             : 'text-gray-600 dark:text-gray-400'
@@ -368,7 +369,9 @@ export default function UserProgress({ scheduledCalls = [] }: UserProgressProps 
                       </p>
                     </div>
                     {milestone.completed && (
-                      <Check className="w-6 h-6 text-blue-500 flex-shrink-0" />
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-lg">
+                        <Check className="w-6 h-6 text-white" />
+                      </div>
                     )}
                   </div>
                 )
@@ -378,29 +381,32 @@ export default function UserProgress({ scheduledCalls = [] }: UserProgressProps 
         )}
 
         {isEligible && !isBooked && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 mb-6">
-            <p className="text-sm text-green-800 dark:text-green-200 leading-relaxed mb-2">
+          <div className="bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 rounded-2xl p-6 mb-6 shadow-2xl border-2 border-green-300 transform hover:scale-[1.02] transition-transform">
+            <p className="text-sm text-white leading-relaxed mb-3 font-semibold">
               🎉 Excellent progress! All prerequisites for your {nextMentorCall.label.toLowerCase()} are complete. Our team at Mentorque has verified your milestones and you're now ready to meet your mentor!
             </p>
-            <p className="text-sm text-green-700 dark:text-green-300 leading-relaxed">
+            <p className="text-sm text-white/90 leading-relaxed font-medium">
               Please contact Mentorque with your availability for this call. Once the admin approves and schedules your session, all the call details will appear above. We're excited to help you take the next step in your career journey!
             </p>
           </div>
         )}
 
         {isBooked && (
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-6 mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-              <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                Call Booked Successfully!
+          <div className="bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 rounded-2xl p-6 mb-6 shadow-2xl border-2 border-green-300">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-white/30 flex items-center justify-center">
+                <Check className="w-6 h-6 text-white" />
+              </div>
+              <p className="text-lg font-bold text-white">
+                Call Booked Successfully! 🎊
               </p>
             </div>
-            <p className="text-sm text-green-700 dark:text-green-300">
+            <p className="text-sm text-white/90 leading-relaxed font-medium">
               Your {nextMentorCall.label.toLowerCase()} has been booked. You'll see the next steps once this call is completed.
             </p>
           </div>
         )}
+      </div>
       </div>
     </div>
   )

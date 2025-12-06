@@ -11,25 +11,30 @@ interface UserStatus {
   eligibleForFirstMentorCall: boolean
   firstMentorCallScheduledAt: string | null
   firstMentorCallGoogleMeetLink: string | null
+  firstMentorCallCompletedAt: string | null
   resumeConfirmed: boolean
   portfolioBuildingAndConfirmed: boolean
   eligibleForSecondMentorCall: boolean
   secondMentorCallScheduledAt: string | null
   secondMentorCallGoogleMeetLink: string | null
+  secondMentorCallCompletedAt: string | null
   paymentMade: boolean
   techDistributionAndExtension: boolean
   eligibleForThirdMentorCall: boolean
   thirdMentorCallScheduledAt: string | null
   thirdMentorCallGoogleMeetLink: string | null
+  thirdMentorCallCompletedAt: string | null
   cheatSheetBuiltOut: boolean
   hasAppliedEnoughJobs: boolean
   eligibleForFourthMentorCall: boolean
   fourthMentorCallScheduledAt: string | null
   fourthMentorCallGoogleMeetLink: string | null
+  fourthMentorCallCompletedAt: string | null
   finalReview: boolean
   eligibleForFifthMentorCall: boolean
   fifthMentorCallScheduledAt: string | null
   fifthMentorCallGoogleMeetLink: string | null
+  fifthMentorCallCompletedAt: string | null
 }
 
 interface AdminUserStatusProps {
@@ -137,17 +142,26 @@ export default function AdminUserStatus({ userId, isAdmin }: AdminUserStatusProp
 
   const getCallStatus = (callNumber: number) => {
     const call = MENTOR_CALLS.find(c => c.number === callNumber)
-    if (!call) return { unlocked: false, scheduled: false, scheduledAt: null }
+    if (!call) return { unlocked: false, scheduled: false, scheduledAt: null, completedAt: null, isPast: false }
     const scheduledAt = 
       callNumber === 1 ? status?.firstMentorCallScheduledAt :
       callNumber === 2 ? status?.secondMentorCallScheduledAt :
       callNumber === 3 ? status?.thirdMentorCallScheduledAt :
       callNumber === 4 ? status?.fourthMentorCallScheduledAt :
       status?.fifthMentorCallScheduledAt
+    const completedAt =
+      callNumber === 1 ? status?.firstMentorCallCompletedAt :
+      callNumber === 2 ? status?.secondMentorCallCompletedAt :
+      callNumber === 3 ? status?.thirdMentorCallCompletedAt :
+      callNumber === 4 ? status?.fourthMentorCallCompletedAt :
+      status?.fifthMentorCallCompletedAt
+    const isPast = scheduledAt ? new Date(scheduledAt) < new Date() : false
     return {
       unlocked: Boolean(status?.[call.eligibleKey]),
       scheduled: Boolean(scheduledAt),
       scheduledAt: scheduledAt || null,
+      completedAt: completedAt || null,
+      isPast,
     }
   }
 
@@ -156,10 +170,11 @@ export default function AdminUserStatus({ userId, isAdmin }: AdminUserStatusProp
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
           <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
-            ))}
+            <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
           </div>
         </div>
       </div>
@@ -185,11 +200,15 @@ export default function AdminUserStatus({ userId, isAdmin }: AdminUserStatusProp
             const callStatus = getCallStatus(call.number)
             const unlockStep = PROGRESS_STEPS.find(step => step.unlocksCall === call.number)
             
+            const isPastOrDone = callStatus.isPast || Boolean(callStatus.completedAt)
+            
             return (
               <div
                 key={call.number}
                 className={`p-3 rounded-lg border ${
-                  callStatus.unlocked
+                  isPastOrDone
+                    ? 'bg-gray-200 dark:bg-gray-900 border-gray-300 dark:border-gray-800'
+                    : callStatus.unlocked
                     ? callStatus.scheduled
                       ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'
                       : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
@@ -198,13 +217,19 @@ export default function AdminUserStatus({ userId, isAdmin }: AdminUserStatusProp
               >
                 <div className="flex flex-col items-center gap-2">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm ${
-                    callStatus.unlocked
+                    isPastOrDone
+                      ? 'bg-gray-400 dark:bg-gray-700 text-white'
+                      : callStatus.unlocked
                       ? 'bg-blue-500 text-white'
                       : 'bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
                   }`}>
                     {call.number}
                   </div>
-                  <h4 className="text-xs font-semibold text-gray-900 dark:text-gray-100 text-center">
+                  <h4 className={`text-xs font-semibold text-center ${
+                    isPastOrDone
+                      ? 'text-gray-500 dark:text-gray-500'
+                      : 'text-gray-900 dark:text-gray-100'
+                  }`}>
                     {call.label}
                   </h4>
                   {unlockStep && (
@@ -229,15 +254,49 @@ export default function AdminUserStatus({ userId, isAdmin }: AdminUserStatusProp
                     </div>
                     {/* Schedule Status */}
                     <div className="w-full">
-                      {callStatus.scheduled && callStatus.scheduledAt ? (
-                        <div className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 rounded">
-                          <Video className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-                          <span className="text-[10px] font-medium text-purple-700 dark:text-purple-400 text-center leading-tight">
-                            Scheduled on {new Date(callStatus.scheduledAt).toLocaleDateString('en-US', {
+                      {callStatus.completedAt ? (
+                        <div className="flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded bg-gray-300 dark:bg-gray-800">
+                          <Check className="w-3 h-3 text-gray-600 dark:text-gray-500" />
+                          <span className="text-[9px] font-medium text-gray-600 dark:text-gray-500 text-center leading-tight">
+                            Completed
+                          </span>
+                          <span className="text-[8px] text-gray-600 dark:text-gray-600 text-center leading-tight">
+                            {new Date(callStatus.completedAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
                             })}
                           </span>
+                        </div>
+                      ) : callStatus.scheduled && callStatus.scheduledAt ? (
+                        <div className={`flex flex-col items-center justify-center gap-0.5 px-2 py-1 rounded ${
+                          isPastOrDone
+                            ? 'bg-gray-300 dark:bg-gray-800'
+                            : 'bg-purple-100 dark:bg-purple-900/30'
+                        }`}>
+                          {isPastOrDone ? (
+                            <>
+                              <Check className="w-3 h-3 text-gray-600 dark:text-gray-500" />
+                              <span className="text-[9px] font-medium text-gray-600 dark:text-gray-500 text-center leading-tight">
+                                Done
+                              </span>
+                              <span className="text-[8px] text-gray-600 dark:text-gray-600 text-center leading-tight">
+                                {new Date(callStatus.scheduledAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Video className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                              <span className="text-[10px] font-medium text-purple-700 dark:text-purple-400 text-center leading-tight">
+                                Scheduled on {new Date(callStatus.scheduledAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </>
+                          )}
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
