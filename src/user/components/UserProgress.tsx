@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Check, Flag, Rocket, FileText, Award, Zap, BookOpen, Target } from 'lucide-react'
 import toast from 'react-hot-toast'
 
