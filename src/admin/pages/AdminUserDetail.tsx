@@ -66,6 +66,7 @@ export default function AdminUserDetail() {
   const [user, setUser] = useState<User | null>(null)
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [jobs, setJobs] = useState<AppliedJob[]>([])
+  const [statsJobs, setStatsJobs] = useState<AppliedJob[]>([])
   const [jobsLoading, setJobsLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -73,7 +74,6 @@ export default function AdminUserDetail() {
   const [selectedMentorId, setSelectedMentorId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [showMentorSelector, setShowMentorSelector] = useState(false)
-  const [userStatus, setUserStatus] = useState<any>(null)
   const [showScheduleForm, setShowScheduleForm] = useState(false)
   const [scheduleForm, setScheduleForm] = useState({
     callNumber: 1,
@@ -89,6 +89,7 @@ export default function AdminUserDetail() {
   const [eligibleCalls, setEligibleCalls] = useState<number[]>([])
   const [loadingEligibleCalls, setLoadingEligibleCalls] = useState(false)
   const [timeFilter, setTimeFilter] = useState<'all' | '30days' | '7days'>('all')
+  const [jobsStats, setJobsStats] = useState<any>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   
@@ -116,11 +117,18 @@ export default function AdminUserDetail() {
         loadJobs(jobsPage)
       }
       if (activeTab === 'progress') {
-        loadUserStatus()
         loadScheduledSessions()
       }
     }
   }, [user?.id, jobsPage, activeTab])
+
+  useEffect(() => {
+    if (user?.id && activeTab === 'jobs') {
+      setStatsJobs([])
+      loadJobsStats()
+      loadJobsForStats()
+    }
+  }, [user?.id, activeTab, timeFilter])
 
   // Reload eligible calls when modal opens
   useEffect(() => {
@@ -181,7 +189,14 @@ export default function AdminUserDetail() {
     
     try {
       setJobsLoading(true)
-      const res = await fetch(`${API_URL}/api/admin/users/${id}/jobs?page=${page}&limit=10`, {
+      const limit = timeFilter === 'all' ? 10 : 1000
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        timeFilter,
+        forStats: 'false',
+      })
+      const res = await fetch(`${API_URL}/api/admin/users/${id}/jobs?${params.toString()}`, {
         credentials: 'include',
       })
 
@@ -201,20 +216,48 @@ export default function AdminUserDetail() {
     }
   }
 
-  const loadUserStatus = async () => {
+  const loadJobsStats = async () => {
     if (!id) return
-    
+
     try {
-      const res = await fetch(`${API_URL}/api/admin/users/${id}/status`, {
+      const params = new URLSearchParams({ timeFilter })
+      const res = await fetch(`${API_URL}/api/admin/users/${id}/jobs/stats?${params.toString()}`, {
         credentials: 'include',
       })
 
       if (res.ok) {
         const data = await res.json()
-        setUserStatus(data.userStatus)
+        setJobsStats(data.stats)
       }
     } catch (error) {
-      console.error('Error loading user status:', error)
+      console.error('Error loading jobs stats:', error)
+    }
+  }
+
+  const loadJobsForStats = async () => {
+    if (!id) return
+
+    try {
+      const statsLimit = timeFilter === 'all' ? 200 : 1000
+      const params = new URLSearchParams({
+        page: '1',
+        limit: statsLimit.toString(),
+        timeFilter,
+        forStats: 'true',
+      })
+      const res = await fetch(`${API_URL}/api/admin/users/${id}/jobs?${params.toString()}`, {
+        credentials: 'include',
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setStatsJobs(data.jobs || [])
+      } else {
+        setStatsJobs([])
+      }
+    } catch (error) {
+      console.error('Error loading stats jobs:', error)
+      setStatsJobs([])
     }
   }
 
@@ -250,8 +293,6 @@ export default function AdminUserDetail() {
           scheduledAt: '',
           scheduledTime: '',
         })
-        // Reload userStatus, eligible calls, and scheduled sessions to reflect the new schedule
-        await loadUserStatus()
         await loadEligibleCalls()
         await loadScheduledSessions()
         // Trigger a reload of AdminUserStatus
@@ -391,7 +432,6 @@ export default function AdminUserDetail() {
         toast.success('Session deleted successfully')
         setDeleteSessionModal(null)
         await loadScheduledSessions()
-        await loadUserStatus()
         await loadEligibleCalls()
         // Trigger a reload of AdminUserStatus
         window.dispatchEvent(new Event('userStatusUpdated'))
@@ -548,30 +588,22 @@ export default function AdminUserDetail() {
     )
   }
 
-  // Calculate stats from all jobs (we'll need to fetch total count separately for stats)
-  // For now, we'll use the paginated jobs for stats display
-  const totalJobsCount = jobsPagination.totalCount || jobs.length
-
-  // Filter jobs based on timeFilter
-  const getFilteredJobs = () => {
-    if (timeFilter === 'all') return jobs
-    
-    const now = new Date()
-    const filterDate = new Date()
-    
-    if (timeFilter === '30days') {
-      filterDate.setDate(now.getDate() - 30)
-    } else if (timeFilter === '7days') {
-      filterDate.setDate(now.getDate() - 7)
+  const getTotalJobsCount = () => {
+    if (!jobsStats) {
+      return jobsPagination.totalCount || jobs.length || 0
     }
-    
-    return jobs.filter(job => {
-      const jobDate = new Date(job.appliedDate)
-      return jobDate >= filterDate
-    })
+
+    if (timeFilter === '7days') {
+      return jobsStats.filteredTotal ?? jobsStats.last7Days ?? jobsStats.total ?? 0
+    }
+    if (timeFilter === '30days') {
+      return jobsStats.filteredTotal ?? jobsStats.last30Days ?? jobsStats.total ?? 0
+    }
+    return jobsStats.total ?? jobsStats.filteredTotal ?? 0
   }
 
-  const filteredJobs = getFilteredJobs()
+  const totalJobsCount = getTotalJobsCount()
+  const jobsForStats = statsJobs.length > 0 ? statsJobs : jobs
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700">
@@ -934,9 +966,9 @@ export default function AdminUserDetail() {
           </>
         ) : (
           <>
-            {/* Job Stats Component - Using current jobs for display */}
-        <JobStats 
-          jobs={jobs} 
+        {/* Job Stats Component */}
+    <JobStats 
+      jobs={jobsForStats} 
           goalPerDay={user.goalPerDay || 3}
           timeFilter={timeFilter}
           onTimeFilterChange={setTimeFilter}
@@ -945,19 +977,19 @@ export default function AdminUserDetail() {
             {/* Jobs List with Pagination */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-                Applied Jobs ({filteredJobs.length})
+                Applied Jobs ({totalJobsCount})
           </h2>
               {jobsLoading ? (
                 <JobsListSkeleton />
               ) : (
                 <>
           <div className="space-y-4">
-            {filteredJobs.length === 0 ? (
+            {jobs.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400 text-center py-8">
                 No jobs applied yet
               </p>
             ) : (
-              filteredJobs.map((job) => (
+              jobs.map((job) => (
                 <div
                   key={job.id}
                   className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
@@ -989,7 +1021,7 @@ export default function AdminUserDetail() {
               </div>
                   
                   {/* Pagination */}
-                  {jobsPagination.totalPages > 1 && (
+                  {timeFilter === 'all' && jobsPagination.totalPages > 1 && (
                     <Pagination
                       currentPage={jobsPage}
                       totalPages={jobsPagination.totalPages}
