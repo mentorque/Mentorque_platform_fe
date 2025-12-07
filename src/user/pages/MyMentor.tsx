@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import Navbar from '@/shared/components/Navbar'
 import Protected from '@/shared/components/Protected'
 import UserProgress from '@/user/components/UserProgress'
-import { UserCircle, Clock, Briefcase, Video, ExternalLink } from 'lucide-react'
+import { UserCircle, Clock, Briefcase, Video, ExternalLink, FileText } from 'lucide-react'
 import { auth } from '@/lib/firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 
@@ -26,6 +26,13 @@ interface ScheduledCall {
   googleMeetLink: string | null
 }
 
+interface CallNotes {
+  callNumber: number
+  title: string
+  notes: string
+  updatedAt: string | null
+}
+
 // Helper function to get preset description for each call (user perspective)
 const getCallDescription = (callNumber: number, mentorName: string | null) => {
   const mentorDisplayName = mentorName || 'your mentor'
@@ -41,11 +48,39 @@ const getCallDescription = (callNumber: number, mentorName: string | null) => {
   return descriptions[callNumber] || `This is your call ${callNumber} with ${mentorDisplayName}.`
 }
 
+const getDefaultCallNotes = (): CallNotes[] => ([
+  {
+    callNumber: 1,
+    title: 'Resume Finalisation, Preparation Tips and Job Application Strategy',
+    notes: '',
+    updatedAt: null,
+  },
+  {
+    callNumber: 2,
+    title: 'Progress Review and Strategy Adjustment',
+    notes: '',
+    updatedAt: null,
+  },
+  {
+    callNumber: 3,
+    title: 'Mock Interview',
+    notes: '',
+    updatedAt: null,
+  },
+  {
+    callNumber: 4,
+    title: 'Mock Interview',
+    notes: '',
+    updatedAt: null,
+  },
+])
+
 export default function MyMentor() {
   const [assignedMentor, setAssignedMentor] = useState<Mentor | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [scheduledCalls, setScheduledCalls] = useState<ScheduledCall[]>([])
+  const [mentorNotes, setMentorNotes] = useState<CallNotes[]>(getDefaultCallNotes())
 
   useEffect(() => {
     // Wait for auth state to be ready before loading data
@@ -121,6 +156,7 @@ export default function MyMentor() {
       } catch (err) {
         console.error('Error loading scheduled calls:', err)
       }
+      await loadMentorNotes(token)
 
       // Load assigned mentor first
       let mentor: Mentor | null = null
@@ -159,6 +195,31 @@ export default function MyMentor() {
       setError(err.message || 'Failed to load mentor information')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMentorNotes = async (token?: string) => {
+    if (!token) {
+      setMentorNotes(getDefaultCallNotes())
+      return
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/users/me/mentor-session-notes`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setMentorNotes(data.calls?.length ? data.calls : getDefaultCallNotes())
+      } else {
+        setMentorNotes(getDefaultCallNotes())
+      }
+    } catch (error) {
+      console.error('Error loading mentor notes:', error)
+      setMentorNotes(getDefaultCallNotes())
     }
   }
 
@@ -360,6 +421,42 @@ export default function MyMentor() {
                 </div>
               </div>
             )}
+
+            {/* Mentor Notes */}
+            <div className="mb-12">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 text-center">
+                Notes from Your Mentor
+              </h2>
+              <div className="grid gap-4">
+                {mentorNotes.map((note) => (
+                  <div key={note.callNumber} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                          Call {note.callNumber}
+                        </p>
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                          {note.title}
+                        </h3>
+                      </div>
+                      {note.updatedAt && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Updated {new Date(note.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="text-blue-500 dark:text-blue-400 mt-1">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line min-h-[3rem]">
+                        {note.notes || 'No mentor notes yet for this call.'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {/* User Progress - Shows Next Available Call */}
             <div className="mb-12">
