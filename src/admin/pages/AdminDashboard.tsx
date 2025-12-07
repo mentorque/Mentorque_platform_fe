@@ -170,7 +170,7 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         const statsData = await res.json()
-        setStats(statsData)
+        setStats(statsData.stats || statsData)
       }
     } catch (error) {
       console.error('Error loading stats:', error)
