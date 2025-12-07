@@ -13,7 +13,7 @@ interface ProtectedAdminRouteProps {
  */
 export default function ProtectedAdminRoute({ children }: ProtectedAdminRouteProps) {
   const navigate = useNavigate()
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | 'unverified' | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | 'unverified' | 'mentor' | null>(null)
 
   useEffect(() => {
     checkAuth()
@@ -39,11 +39,15 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
         localStorage.setItem('adminInfo', JSON.stringify(adminInfo))
         
         // Check if non-admin mentor is verified
-        if (!adminInfo.isAdmin && !adminInfo.verifiedByAdmin) {
-          setIsAuthenticated('unverified')
+        if (!adminInfo.isAdmin) {
+          if (!adminInfo.verifiedByAdmin) {
+            setIsAuthenticated('unverified')
+          } else {
+            setIsAuthenticated('mentor')
+          }
           return
         }
-        
+
         setIsAuthenticated(true)
       } else {
         setIsAuthenticated(false)
@@ -56,6 +60,15 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
     }
   }
 
+  useEffect(() => {
+    if (isAuthenticated === 'mentor') {
+      const timer = setTimeout(() => {
+        navigate('/mentor/dashboard', { replace: true })
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [isAuthenticated, navigate])
+
   if (isAuthenticated === null) {
     // Still checking authentication
     return (
@@ -65,7 +78,7 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
     )
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || isAuthenticated === 'mentor') {
     return null // Will redirect
   }
 
@@ -127,6 +140,27 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
               Go to Login
             </button>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isAuthenticated === 'mentor') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 max-w-md w-full text-center space-y-4">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Mentor Access Detected
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            You are logged in as a mentor. Redirecting to the mentor dashboard shortly...
+          </p>
+          <button
+            onClick={() => navigate('/mentor/dashboard', { replace: true })}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
+          >
+            Go to Mentor Dashboard Now
+          </button>
         </div>
       </div>
     )

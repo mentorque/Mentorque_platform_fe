@@ -414,19 +414,7 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Applications</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                      {stats?.totalAppliedJobs ?? 0}
-                    </p>
-                  </div>
-                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                    <Briefcase className="w-8 h-8 text-green-600 dark:text-green-400" />
-                  </div>
-                </div>
-              </div>
+            {/* Total Applications card removed per request */}
             </>
           )}
         </div>
