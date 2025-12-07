@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom"
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export default function AdminLogin() {
+export default function AdminSignup() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [name, setName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
@@ -16,32 +17,34 @@ export default function AdminLogin() {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${API_URL}/api/admin/login`, {
+      const response = await fetch(`${API_URL}/api/mentor/signup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: 'include',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, name }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Login failed")
+        throw new Error(data.error || "Signup failed")
       }
 
-      // Store admin info and token in localStorage
+      // Store admin info in localStorage
       localStorage.setItem("adminInfo", JSON.stringify(data.adminMentor))
-      if (data.token) {
-        localStorage.setItem("adminToken", data.token)
-      }
 
-      // Navigate to dashboard
-      navigate('/admin/dashboard', { replace: true })
+      // Navigate to profile page (for non-admin mentors, or dashboard for admins)
+      if (!data.adminMentor.isAdmin && !data.adminMentor.verifiedByAdmin) {
+        // Will show approval needed message
+        navigate("/mentor/dashboard", { replace: true })
+      } else {
+        navigate("/mentor/dashboard", { replace: true })
+      }
     } catch (err: any) {
-      setError(err?.message || "Login failed")
-      console.error("Admin login failed", err)
+      setError(err?.message || "Signup failed")
+      console.error("Admin signup failed", err)
     } finally {
       setIsLoading(false)
     }
@@ -56,23 +59,39 @@ export default function AdminLogin() {
             Mentorque
           </h1>
           <p className="text-gray-600 dark:text-gray-300 text-lg">
-            Admin Portal
+            Admin & Mentor Portal
           </p>
         </div>
 
-        {/* Sign In Card */}
+        {/* Sign Up Card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-8">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Admin Login
+              Create Account
             </h2>
             <p className="text-gray-600 dark:text-gray-300">
-              Sign in to access the admin dashboard
+              Sign up to become a mentor
             </p>
           </div>
 
-          {/* Login Form */}
+          {/* Signup Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="John Doe"
+                disabled={isLoading}
+              />
+            </div>
+
             {/* Email Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -84,7 +103,7 @@ export default function AdminLogin() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                placeholder="admin@mentorque.com"
+                placeholder="mentor@mentorque.com"
                 disabled={isLoading}
               />
             </div>
@@ -99,6 +118,7 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6}
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="Enter your password"
                 disabled={isLoading}
@@ -121,41 +141,23 @@ export default function AdminLogin() {
               {isLoading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Signing in...</span>
+                  <span>Creating account...</span>
                 </>
               ) : (
-                "Sign In"
+                "Sign Up"
               )}
             </button>
           </form>
 
-          {/* Additional Info */}
-          <div className="mt-6 text-center space-y-2">
+          {/* Login Link */}
+          <div className="mt-6 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Don't have an account?{" "}
+              Already have an account?{" "}
               <a
-                href="/admin/signup"
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
-              >
-                Sign up here
-              </a>
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Regular user?{" "}
-              <a
-                href="/signin"
+                href="/admin"
                 className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
               >
                 Sign in here
-              </a>
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Mentor?{" "}
-              <a
-                href="/mentor"
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors"
-              >
-                Mentor Portal
               </a>
             </p>
           </div>
@@ -164,5 +166,4 @@ export default function AdminLogin() {
     </div>
   )
 }
-
 

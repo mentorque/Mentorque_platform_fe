@@ -846,11 +846,24 @@ function MentorsList({
                         </span>
                       </div>
                       <div className="flex items-center gap-4 mb-4">
-                        <img
-                          src={mentor.picture || 'https://i.pravatar.cc/150'}
-                          alt={mentor.name}
-                          className="w-16 h-16 rounded-full object-cover"
-                        />
+                        {mentor.picture ? (
+                          <img
+                            src={mentor.picture}
+                            alt={mentor.name}
+                            className="w-16 h-16 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xl ${
+                            ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-red-500', 'bg-yellow-500', 'bg-teal-500'][
+                              mentor.name.charCodeAt(0) % 8
+                            ]
+                          }`}>
+                            {mentor.name.split(' ').length >= 2 
+                              ? mentor.name.split(' ')[0][0].toUpperCase() + mentor.name.split(' ').slice(-1)[0][0].toUpperCase()
+                              : mentor.name.substring(0, 2).toUpperCase()
+                            }
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">{mentor.name}</h3>

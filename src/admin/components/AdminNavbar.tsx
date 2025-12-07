@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import { LogOut, UserCircle, ChevronRight } from 'lucide-react'
-import { useMentorRoute } from '../hooks/useMentorRoute'
 
 interface BreadcrumbItem {
   label: string
@@ -16,7 +15,6 @@ interface AdminNavbarProps {
 
 export default function AdminNavbar({ adminName, onLogout, breadcrumbs, isAdmin = true }: AdminNavbarProps) {
   const navigate = useNavigate()
-  const { dashboardPath } = useMentorRoute()
 
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
@@ -25,7 +23,7 @@ export default function AdminNavbar({ adminName, onLogout, breadcrumbs, isAdmin 
           {/* Left side - Logo and Breadcrumbs */}
           <div className="flex items-center gap-4 flex-1 min-w-0">
             <button
-              onClick={() => navigate(dashboardPath)}
+              onClick={() => navigate('/admin/dashboard')}
               className="flex items-center gap-3 hover:opacity-80 transition-opacity"
             >
               <img

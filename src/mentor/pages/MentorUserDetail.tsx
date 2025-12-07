@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { UserCircle, Check, Save, X, Calendar, Video, FileText, Target, ShieldCheck, Shield, Lock, Trash2 } from 'lucide-react'
+import { UserCircle, Check, Save, X, Calendar, Video, Target, FileText, List, Trash2 } from 'lucide-react'
 import JobStats from '@/shared/components/JobStats'
-import AdminNavbar from '@/admin/components/AdminNavbar'
-import AdminUserStatus from '@/admin/components/AdminUserStatus'
+import MentorNavbar from '@/mentor/components/MentorNavbar'
 import Pagination from '@/shared/ui/Pagination'
 import toast from 'react-hot-toast'
-import { useMentorRoute } from '@/admin/hooks/useMentorRoute'
 import {
   UserHeaderSkeleton,
   JobStatsSkeleton,
@@ -14,6 +12,7 @@ import {
 } from '@/shared/ui/Skeleton'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const apiPrefix = '/api/mentor'
 
 interface AppliedJob {
   id: string
@@ -59,21 +58,19 @@ interface User {
   }
 }
 
-export default function AdminUserDetail() {
+export default function MentorUserDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { apiPrefix } = useMentorRoute()
   const [user, setUser] = useState<User | null>(null)
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [jobs, setJobs] = useState<AppliedJob[]>([])
   const [jobsLoading, setJobsLoading] = useState(false)
+  const [jobsStats, setJobsStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [adminInfo, setAdminInfo] = useState<any>(null)
   const [selectedMentorId, setSelectedMentorId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [showMentorSelector, setShowMentorSelector] = useState(false)
-  const [userStatus, setUserStatus] = useState<any>(null)
   const [showScheduleForm, setShowScheduleForm] = useState(false)
   const [scheduleForm, setScheduleForm] = useState({
     callNumber: 1,
@@ -82,15 +79,11 @@ export default function AdminUserDetail() {
     scheduledTime: '',
   })
   const [isScheduling, setIsScheduling] = useState(false)
-  const [activeTab, setActiveTab] = useState<'progress' | 'jobs'>('progress')
-  const [showPasswordModal, setShowPasswordModal] = useState(false)
-  const [password, setPassword] = useState('')
-  const [isTogglingVerification, setIsTogglingVerification] = useState(false)
+  const [activeTab, setActiveTab] = useState<'calls' | 'jobs'>('calls')
   const [eligibleCalls, setEligibleCalls] = useState<number[]>([])
   const [loadingEligibleCalls, setLoadingEligibleCalls] = useState(false)
   const [timeFilter, setTimeFilter] = useState<'all' | '30days' | '7days'>('all')
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [statsJobs, setStatsJobs] = useState<AppliedJob[]>([])
   
   // Scheduled sessions state
   const [scheduledSessions, setScheduledSessions] = useState<any[]>([])
@@ -106,6 +99,15 @@ export default function AdminUserDetail() {
     limit: 10,
   })
 
+  // Mentor session notes state
+  const [sessionNotes, setSessionNotes] = useState<any[]>([])
+  const [loadingNotes, setLoadingNotes] = useState(false)
+  const [notesModalOpen, setNotesModalOpen] = useState(false)
+  const [editingCallNumber, setEditingCallNumber] = useState<number | null>(null)
+  const [noteText, setNoteText] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null)
+
   useEffect(() => {
     loadData()
   }, [id])
@@ -113,14 +115,36 @@ export default function AdminUserDetail() {
   useEffect(() => {
     if (user?.id) {
       if (activeTab === 'jobs') {
-        loadJobs(jobsPage)
+        loadJobs(jobsPage, 10)
       }
-      if (activeTab === 'progress') {
-        loadUserStatus()
+      if (activeTab === 'calls') {
+        loadSessionNotes()
         loadScheduledSessions()
       }
     }
-  }, [user?.id, jobsPage, activeTab])
+  }, [user?.id, activeTab])
+
+  useEffect(() => {
+    if (user?.id && activeTab === 'jobs') {
+      setStatsJobs([])
+      loadJobsStats()
+      loadJobsForStats()
+    }
+  }, [user?.id, activeTab, timeFilter])
+
+  // Reload jobs when page or filter changes
+  useEffect(() => {
+    if (user?.id && activeTab === 'jobs') {
+      loadJobs(jobsPage, 10)
+    }
+  }, [jobsPage, timeFilter])
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    if (user?.id && activeTab === 'jobs' && timeFilter !== 'all' && jobsPage !== 1) {
+      setJobsPage(1)
+    }
+  }, [timeFilter])
 
   // Reload eligible calls when modal opens
   useEffect(() => {
@@ -129,32 +153,42 @@ export default function AdminUserDetail() {
     }
   }, [showScheduleForm, user?.id])
 
+  // Helper function to get auth headers
+  const getMentorHeaders = (includeContentType = false): HeadersInit => {
+    const token = localStorage.getItem('mentorToken')
+    const headers: HeadersInit = {}
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    if (includeContentType) {
+      headers['Content-Type'] = 'application/json'
+    }
+    return headers
+  }
+
   const loadData = async () => {
     try {
       setLoading(true)
+      // Clear jobs when loading new user to prevent showing stale data
+      setJobs([])
+      setStatsJobs([])
+      setJobsPagination({
+        totalCount: 0,
+        totalPages: 0,
+        limit: 10,
+      })
 
-      // Check if admin
-      const adminInfoStr = localStorage.getItem('adminInfo')
-      const parsedAdminInfo = adminInfoStr ? JSON.parse(adminInfoStr) : null
-      setAdminInfo(parsedAdminInfo)
-      setIsAdmin(parsedAdminInfo?.isAdmin || false)
+      // Get mentor info
+      const mentorInfoStr = localStorage.getItem('mentorInfo')
+      const parsedMentorInfo = mentorInfoStr ? JSON.parse(mentorInfoStr) : null
+      setAdminInfo(parsedMentorInfo)
 
-      const promises = [
-        fetch(`${API_URL}/api/admin/users/${id}`, {
+      const [userRes] = await Promise.all([
+        fetch(`${API_URL}/api/mentor/users/${id}`, {
           credentials: 'include',
+          headers: getMentorHeaders(),
         }),
-      ]
-
-      if (parsedAdminInfo?.isAdmin) {
-        // Fetch all mentors for selector (no pagination limit)
-        promises.push(
-          fetch(`${API_URL}/api/admin/mentors?page=1&limit=1000`, {
-            credentials: 'include',
-          })
-        )
-      }
-
-      const [userRes, mentorsRes] = await Promise.all(promises)
+      ])
 
       if (!userRes.ok) {
         throw new Error('Failed to fetch user')
@@ -163,63 +197,295 @@ export default function AdminUserDetail() {
       const userData = await userRes.json()
       setUser(userData.user)
       setSelectedMentorId(userData.user.mentorId || null)
-
-      if (mentorsRes && mentorsRes.ok) {
-        const mentorsData = await mentorsRes.json()
-        setMentors(mentorsData.mentors || [])
-      }
     } catch (error) {
       console.error('Error loading user data:', error)
-      navigate('/admin/dashboard', { replace: true })
+      navigate('/mentor/dashboard', { replace: true })
     } finally {
       setLoading(false)
     }
   }
 
-  const loadJobs = async (page: number) => {
-    if (!id) return
-    
+  const loadMentors = async () => {
+    if (mentors.length > 0) return
+
     try {
-      setJobsLoading(true)
-      const res = await fetch(`${API_URL}/api/admin/users/${id}/jobs?page=${page}&limit=10`, {
+      const res = await fetch(`${API_URL}/api/mentor/mentors`, {
         credentials: 'include',
+        headers: getMentorHeaders(),
       })
 
       if (res.ok) {
         const data = await res.json()
+        setMentors(data.mentors || [])
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('Failed to load mentors:', res.status, errorData)
+      }
+    } catch (error) {
+      console.error('Error loading mentors:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (showMentorSelector && mentors.length === 0) {
+      loadMentors()
+    }
+  }, [showMentorSelector, mentors.length])
+
+  const loadJobsStats = async () => {
+    if (!id) return
+    
+    try {
+      const query = new URLSearchParams({ timeFilter })
+      const res = await fetch(`${API_URL}/api/mentor/users/${id}/jobs/stats?${query.toString()}`, {
+        credentials: 'include',
+        headers: getMentorHeaders(),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setJobsStats(data.stats)
+      }
+    } catch (error) {
+      console.error('Error loading jobs stats:', error)
+    }
+  }
+
+  const loadJobsForStats = async () => {
+    if (!id) return
+
+    try {
+      const statsLimit = timeFilter === 'all' ? 200 : 1000
+      const params = new URLSearchParams({
+        page: '1',
+        limit: statsLimit.toString(),
+        timeFilter,
+        forStats: 'true',
+      })
+      const res = await fetch(`${API_URL}/api/mentor/users/${id}/jobs?${params.toString()}`,
+        {
+          credentials: 'include',
+          headers: getMentorHeaders(),
+        }
+      )
+
+      if (res.ok) {
+        const data = await res.json()
+        setStatsJobs(data.jobs || [])
+      } else {
+        setStatsJobs([])
+      }
+    } catch (error) {
+      console.error('Error loading stats jobs:', error)
+      setStatsJobs([])
+    }
+  }
+
+  const loadJobs = async (page: number, limit: number = 10) => {
+    if (!id) {
+      console.warn('⚠️ No user ID provided for loading jobs')
+      return
+    }
+    
+    try {
+      setJobsLoading(true)
+      console.log('🔄 Loading jobs for user:', id, 'page:', page, 'limit:', limit, 'filter:', timeFilter)
+      const url = `${API_URL}/api/mentor/users/${id}/jobs?page=${page}&limit=${limit}&timeFilter=${timeFilter}`
+      const res = await fetch(url, {
+        credentials: 'include',
+        headers: getMentorHeaders(),
+      })
+
+      console.log('📡 Jobs response status:', res.status, res.ok)
+
+      if (res.ok) {
+        const data = await res.json()
+        console.log('✅ Loaded jobs data:', data)
+        console.log('📊 Jobs count:', data.jobs?.length || 0)
+        console.log('📄 Pagination:', data.pagination)
+        console.log('👤 Loading jobs for user ID:', id)
+        console.log('📋 Sample job:', data.jobs?.[0])
+        
+        // Verify jobs belong to the correct user
+        if (data.jobs && data.jobs.length > 0) {
+          const firstJob = data.jobs[0]
+          console.log('🔍 First job details:', {
+            id: firstJob.id,
+            title: firstJob.title,
+            company: firstJob.company,
+            appliedDate: firstJob.appliedDate
+          })
+        }
+        
         setJobs(data.jobs || [])
         setJobsPagination({
-          totalCount: data.pagination.totalCount,
-          totalPages: data.pagination.totalPages,
-          limit: data.pagination.limit,
+          totalCount: data.pagination?.totalCount || 0,
+          totalPages: data.pagination?.totalPages || 0,
+          limit: data.pagination?.limit || 10,
+        })
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('❌ Failed to load jobs:', res.status, errorData)
+        toast.error(errorData.message || 'Failed to load applied jobs')
+        setJobs([])
+        setJobsPagination({
+          totalCount: 0,
+          totalPages: 0,
+          limit: 10,
         })
       }
     } catch (error) {
-      console.error('Error loading jobs:', error)
+      console.error('❌ Error loading jobs:', error)
+      toast.error('Failed to load applied jobs')
+      setJobs([])
     } finally {
       setJobsLoading(false)
     }
   }
 
-  const loadUserStatus = async () => {
-    if (!id) return
+  const loadSessionNotes = async () => {
+    if (!id) {
+      console.warn('⚠️ No user ID provided for loading session notes')
+      return
+    }
     
     try {
-      const res = await fetch(`${API_URL}/api/admin/users/${id}/status`, {
+      setLoadingNotes(true)
+      console.log('🔄 Loading session notes for user:', id)
+      const res = await fetch(`${API_URL}/api/mentor-session-notes/${id}`, {
         credentials: 'include',
+        headers: getMentorHeaders(),
       })
 
       if (res.ok) {
         const data = await res.json()
-        setUserStatus(data.userStatus)
+        console.log('✅ Loaded session notes:', data)
+        setSessionNotes(data.calls || [])
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('❌ Failed to load session notes:', res.status, errorData)
+        // Set default calls if API fails
+        setSessionNotes([
+          { callNumber: 1, title: 'Resume Finalisation, Preparation Tips and Job Application Strategy', notes: '', updatedAt: null },
+          { callNumber: 2, title: 'Progress Review and Strategy Adjustment', notes: '', updatedAt: null },
+          { callNumber: 3, title: 'Mock Interview', notes: '', updatedAt: null },
+          { callNumber: 4, title: 'Mock Interview', notes: '', updatedAt: null },
+        ])
       }
     } catch (error) {
-      console.error('Error loading user status:', error)
+      console.error('❌ Error loading session notes:', error)
+      // Set default calls on error
+      setSessionNotes([
+        { callNumber: 1, title: 'Resume Finalisation, Preparation Tips and Job Application Strategy', notes: '', updatedAt: null },
+        { callNumber: 2, title: 'Progress Review and Strategy Adjustment', notes: '', updatedAt: null },
+        { callNumber: 3, title: 'Mock Interview', notes: '', updatedAt: null },
+        { callNumber: 4, title: 'Mock Interview', notes: '', updatedAt: null },
+      ])
+    } finally {
+      setLoadingNotes(false)
+    }
+  }
+
+  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value
+    const textarea = e.target
+    const cursorPosition = textarea.selectionStart
+    
+    // Convert "- " to "➤ " when typed
+    let newValue = value
+    if (value.includes('- ')) {
+      // Replace "- " with "➤ " but preserve cursor position
+      const lines = value.split('\n')
+      let newLines = lines.map(line => {
+        // Only replace if it's at the start of the line or after whitespace
+        if (line.trim().startsWith('- ')) {
+          return line.replace(/^(\s*)- /, '$1➤ ')
+        }
+        return line
+      })
+      newValue = newLines.join('\n')
+      
+      // Adjust cursor position if replacement happened
+      if (newValue !== value) {
+        const diff = (newValue.match(/➤/g) || []).length - (value.match(/➤/g) || []).length
+        const newCursorPosition = cursorPosition + diff
+        setNoteText(newValue)
+        setTimeout(() => {
+          if (notesTextareaRef.current) {
+            notesTextareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition)
+          }
+        }, 0)
+        return
+      }
+    }
+    
+    setNoteText(newValue)
+  }
+
+  const handleNotesKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      const textarea = e.target as HTMLTextAreaElement
+      const cursorPosition = textarea.selectionStart
+      const textBeforeCursor = noteText.substring(0, cursorPosition)
+      const currentLine = textBeforeCursor.split('\n').pop() || ''
+      
+      // Check if current line starts with ➤
+      if (currentLine.trim().startsWith('➤')) {
+        e.preventDefault()
+        
+        // Get indentation from current line
+        const match = currentLine.match(/^(\s*)/)
+        const indent = match ? match[1] : ''
+        
+        // Insert new line with ➤ and same indentation
+        const textAfterCursor = noteText.substring(cursorPosition)
+        const newText = textBeforeCursor + '\n' + indent + '➤ ' + textAfterCursor
+        const newCursorPosition = cursorPosition + indent.length + '➤ '.length + 1
+        
+        setNoteText(newText)
+        setTimeout(() => {
+          if (notesTextareaRef.current) {
+            notesTextareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition)
+          }
+        }, 0)
+      }
+    }
+  }
+
+  const saveSessionNote = async (callNumber: number, notes: string) => {
+    if (!id) return
+    
+    try {
+      setSavingNote(true)
+      const res = await fetch(`${API_URL}/api/mentor-session-notes/${id}/${callNumber}`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          ...getMentorHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ notes }),
+      })
+
+      if (res.ok) {
+        toast.success('Session notes saved successfully')
+        await loadSessionNotes()
+        setEditingCallNumber(null)
+        setNoteText('')
+        setNotesModalOpen(false)
+      } else {
+        toast.error('Failed to save session notes')
+      }
+    } catch (error) {
+      console.error('Error saving session notes:', error)
+      toast.error('Failed to save session notes')
+    } finally {
+      setSavingNote(false)
     }
   }
 
   const handleScheduleCall = async () => {
-    if (!isAdmin || !user || !scheduleForm.googleMeetLink || !scheduleForm.scheduledAt || !scheduleForm.scheduledTime) {
+    if (!user || !scheduleForm.googleMeetLink || !scheduleForm.scheduledAt || !scheduleForm.scheduledTime) {
       toast.error('Please fill in all fields')
       return
     }
@@ -228,11 +494,9 @@ export default function AdminUserDetail() {
     try {
       const scheduledDateTime = new Date(`${scheduleForm.scheduledAt}T${scheduleForm.scheduledTime}`)
       
-      const res = await fetch(`${API_URL}/api/admin/users/${user.id}/schedule-call`, {
+      const res = await fetch(`${API_URL}/api/mentor/users/${user.id}/schedule-call`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getMentorHeaders(true),
         credentials: 'include',
         body: JSON.stringify({
           callNumber: scheduleForm.callNumber,
@@ -250,8 +514,7 @@ export default function AdminUserDetail() {
           scheduledAt: '',
           scheduledTime: '',
         })
-        // Reload userStatus, eligible calls, and scheduled sessions to reflect the new schedule
-        await loadUserStatus()
+        // Reload eligible calls and scheduled sessions to reflect the new schedule
         await loadEligibleCalls()
         await loadScheduledSessions()
         // Trigger a reload of AdminUserStatus
@@ -280,6 +543,7 @@ export default function AdminUserDetail() {
       
       const res = await fetch(`${API_URL}${apiPrefix}/users/${id}/eligible-calls`, {
         credentials: 'include',
+        headers: getMentorHeaders(),
       })
 
       console.log('📡 Eligible calls response status:', res.status, res.ok)
@@ -316,15 +580,13 @@ export default function AdminUserDetail() {
   }
 
   const handleAssignMentor = async () => {
-    if (!isAdmin || !user) return
+    if (!user) return
 
     setIsSaving(true)
     try {
-      const res = await fetch(`${API_URL}/api/admin/users/${user.id}/mentor`, {
+      const res = await fetch(`${API_URL}/api/mentor/users/${user.id}/mentor`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getMentorHeaders(true),
         credentials: 'include',
         body: JSON.stringify({ mentorId: selectedMentorId }),
       })
@@ -357,6 +619,7 @@ export default function AdminUserDetail() {
       setLoadingSessions(true)
       const res = await fetch(`${API_URL}${apiPrefix}/users/${user.id}/scheduled-calls`, {
         credentials: 'include',
+        headers: getMentorHeaders(),
       })
 
       if (res.ok) {
@@ -375,7 +638,7 @@ export default function AdminUserDetail() {
   }
 
   const handleDeleteSession = async () => {
-    if (!deleteSessionModal || !isAdmin) return
+    if (!deleteSessionModal) return
 
     try {
       setIsDeletingSession(true)
@@ -384,6 +647,7 @@ export default function AdminUserDetail() {
         {
           method: 'DELETE',
           credentials: 'include',
+          headers: getMentorHeaders(),
         }
       )
 
@@ -391,7 +655,6 @@ export default function AdminUserDetail() {
         toast.success('Session deleted successfully')
         setDeleteSessionModal(null)
         await loadScheduledSessions()
-        await loadUserStatus()
         await loadEligibleCalls()
         // Trigger a reload of AdminUserStatus
         window.dispatchEvent(new Event('userStatusUpdated'))
@@ -408,51 +671,12 @@ export default function AdminUserDetail() {
   }
 
 
-  const handleToggleVerification = async () => {
-    if (!isAdmin || !user || !password) {
-      toast.error('Please enter your password')
-      return
-    }
-
-    setIsTogglingVerification(true)
-    try {
-      const res = await fetch(`${API_URL}/api/admin/users/${user.id}/toggle-verification`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          password: password,
-          verifiedByAdmin: !user.verifiedByAdmin,
-        }),
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        setUser({ ...user, verifiedByAdmin: data.user.verifiedByAdmin })
-        toast.success(data.message || 'Verification status updated successfully')
-        setShowPasswordModal(false)
-        setPassword('')
-        await loadData() // Reload user data
-      } else {
-        const error = await res.json()
-        toast.error(error.message || 'Failed to update verification status')
-      }
-    } catch (error: any) {
-      console.error('Error toggling verification:', error)
-      toast.error('Failed to update verification status')
-    } finally {
-      setIsTogglingVerification(false)
-    }
-  }
-
   const handleLogout = async () => {
     try {
       // Clear token from localStorage on logout
       localStorage.removeItem('adminToken')
       
-      await fetch(`${API_URL}/api/admin/logout`, {
+      await fetch(`${API_URL}/api/mentor/logout`, {
         method: 'POST',
         credentials: 'include',
       })
@@ -464,49 +688,23 @@ export default function AdminUserDetail() {
     }
   }
 
-  const handleDeleteUser = async () => {
-    if (!isAdmin || !user) return
-
-    setIsDeleting(true)
-    try {
-      const res = await fetch(`${API_URL}${apiPrefix}/users/${user.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      })
-
-      if (res.ok) {
-        toast.success('User deleted successfully')
-        setShowDeleteModal(false)
-        navigate('/admin/dashboard')
-      } else {
-        const error = await res.json()
-        toast.error(error.message || 'Failed to delete user')
-      }
-    } catch (error: any) {
-      console.error('Error deleting user:', error)
-      toast.error('Failed to delete user')
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
   const breadcrumbs = user
     ? [
-        { label: 'Dashboard', path: '/admin/dashboard' },
-        { label: 'Users', path: '/admin/dashboard' },
+        { label: 'Dashboard', path: '/mentor/dashboard' },
+        { label: 'Users', path: '/mentor/dashboard' },
         { label: user.fullName || user.email },
       ]
-    : [{ label: 'Dashboard', path: '/admin/dashboard' }, { label: 'Users', path: '/admin/dashboard' }]
+    : [{ label: 'Dashboard', path: '/mentor/dashboard' }, { label: 'Users', path: '/mentor/dashboard' }]
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700">
         {adminInfo && (
-          <AdminNavbar
-            adminName={adminInfo.name}
+          <MentorNavbar
+            mentorName={adminInfo.name}
             onLogout={handleLogout}
             breadcrumbs={breadcrumbs}
-            isAdmin={adminInfo.isAdmin}
+            mentorInfo={adminInfo}
           />
         )}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -526,18 +724,18 @@ export default function AdminUserDetail() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700">
         {adminInfo && (
-          <AdminNavbar
-            adminName={adminInfo.name}
+          <MentorNavbar
+            mentorName={adminInfo.name}
             onLogout={handleLogout}
             breadcrumbs={breadcrumbs}
-            isAdmin={adminInfo.isAdmin}
+            mentorInfo={adminInfo}
           />
         )}
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
           <div className="text-center">
             <p className="text-gray-600 dark:text-gray-400 mb-4">User not found</p>
             <button
-              onClick={() => navigate('/admin/dashboard')}
+              onClick={() => navigate('/mentor/dashboard')}
               className="text-blue-600 dark:text-blue-400 hover:underline"
             >
               Back to Dashboard
@@ -548,38 +746,32 @@ export default function AdminUserDetail() {
     )
   }
 
-  // Calculate stats from all jobs (we'll need to fetch total count separately for stats)
-  // For now, we'll use the paginated jobs for stats display
-  const totalJobsCount = jobsPagination.totalCount || jobs.length
-
-  // Filter jobs based on timeFilter
-  const getFilteredJobs = () => {
-    if (timeFilter === 'all') return jobs
-    
-    const now = new Date()
-    const filterDate = new Date()
-    
-    if (timeFilter === '30days') {
-      filterDate.setDate(now.getDate() - 30)
-    } else if (timeFilter === '7days') {
-      filterDate.setDate(now.getDate() - 7)
+  // Get total count from stats or pagination
+  const getTotalJobsCount = () => {
+    if (!jobsStats) {
+      return jobsPagination.totalCount || jobs.length || 0
     }
-    
-    return jobs.filter(job => {
-      const jobDate = new Date(job.appliedDate)
-      return jobDate >= filterDate
-    })
+
+    if (timeFilter === '7days') {
+      return jobsStats.filteredTotal ?? jobsStats.last7Days ?? jobsStats.total ?? 0
+    }
+    if (timeFilter === '30days') {
+      return jobsStats.filteredTotal ?? jobsStats.last30Days ?? jobsStats.total ?? 0
+    }
+    return jobsStats.total ?? jobsStats.filteredTotal ?? 0
   }
 
-  const filteredJobs = getFilteredJobs()
+  const totalJobsCount = getTotalJobsCount()
+  const jobsForStats = statsJobs.length > 0 ? statsJobs : jobs
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700">
       {adminInfo && (
-        <AdminNavbar
-          adminName={adminInfo.name}
+        <MentorNavbar
+          mentorName={adminInfo.name}
           onLogout={handleLogout}
           breadcrumbs={breadcrumbs}
+          mentorInfo={adminInfo}
         />
       )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -592,33 +784,9 @@ export default function AdminUserDetail() {
                 <UserCircle className="w-8 h-8 text-white" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {user.fullName || user.email}
                 </h1>
-                  {isAdmin && (
-                    <>
-                      <button
-                        onClick={() => setShowPasswordModal(true)}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        title={user.verifiedByAdmin ? 'Verified - Click to revoke' : 'Not verified - Click to verify'}
-                      >
-                        {user.verifiedByAdmin ? (
-                          <ShieldCheck className="w-6 h-6 text-green-500" />
-                        ) : (
-                          <Shield className="w-6 h-6 text-gray-400" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => setShowDeleteModal(true)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        title="Delete user"
-                      >
-                        <Trash2 className="w-6 h-6 text-red-500" />
-                      </button>
-                    </>
-                  )}
-                </div>
                 <p className="text-gray-600 dark:text-gray-400">{user.email}</p>
                 {user.mentor && (
                   <div className="flex items-center gap-2 mt-1">
@@ -642,7 +810,7 @@ export default function AdminUserDetail() {
                 )}
               </div>
             </div>
-            {isAdmin && (
+            {adminInfo?.isAdmin && (
               <div className="flex flex-col items-end gap-3">
                 <div className="flex items-center gap-3">
                   {!showMentorSelector ? (
@@ -708,7 +876,8 @@ export default function AdminUserDetail() {
         </div>
 
         {/* Mentor Selector */}
-        {isAdmin && showMentorSelector && (
+        {/* Show/Hide Mentor Selector based on user.mentorId */}
+        {showMentorSelector && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
               Select a Mentor
@@ -797,15 +966,15 @@ export default function AdminUserDetail() {
         {/* Tabs */}
         <div className="mb-6 flex gap-4">
           <button
-            onClick={() => setActiveTab('progress')}
+            onClick={() => setActiveTab('calls')}
             className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-              activeTab === 'progress'
+              activeTab === 'calls'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}
           >
-            <FileText className="w-4 h-4" />
-            Progress
+            <Video className="w-4 h-4" />
+            Mentoring Calls
           </button>
           <button
             onClick={() => setActiveTab('jobs')}
@@ -821,17 +990,159 @@ export default function AdminUserDetail() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'progress' ? (
+        {activeTab === 'calls' ? (
           <>
-            <div className="mb-6">
-              <AdminUserStatus userId={user.id} isAdmin={isAdmin} />
+            {/* Mentoring Calls Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                Mentoring Calls
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Here you can keep track of all the mentoring calls with the candidate.
+              </p>
+
+              {loadingNotes ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {(sessionNotes.length > 0 ? sessionNotes : [
+                    { callNumber: 1, title: 'Resume Finalisation, Preparation Tips and Job Application Strategy', notes: '', updatedAt: null },
+                    { callNumber: 2, title: 'Progress Review and Strategy Adjustment', notes: '', updatedAt: null },
+                    { callNumber: 3, title: 'Mock Interview', notes: '', updatedAt: null },
+                    { callNumber: 4, title: 'Mock Interview', notes: '', updatedAt: null },
+                  ]).map((call) => {
+                    // Find if this call is scheduled
+                    const scheduledSession = scheduledSessions.find(s => s.callNumber === call.callNumber)
+                    const isScheduled = !!scheduledSession
+                    const isCompleted = scheduledSession?.completedAt
+                    const isPast = scheduledSession?.isPast || isCompleted
+
+                    return (
+                    <div
+                      key={call.callNumber}
+                        className={`border rounded-xl p-6 hover:shadow-md transition-shadow ${
+                          isScheduled 
+                            ? isPast 
+                              ? 'border-gray-300 dark:border-gray-600 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900'
+                              : 'border-blue-300 dark:border-blue-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20'
+                            : 'border-gray-200 dark:border-gray-700 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900'
+                        }`}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
+                              isScheduled
+                                ? isPast
+                                  ? 'bg-gray-400 text-white'
+                                  : 'bg-blue-600 text-white'
+                                : 'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                            }`}>
+                            {call.callNumber}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-gray-900 dark:text-gray-100">
+                              Mentor Call - {call.callNumber}
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {call.title}
+                            </p>
+                          </div>
+                        </div>
+                          {isScheduled && (
+                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              isCompleted
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                : isPast
+                                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                            }`}>
+                              {isCompleted ? 'Completed' : isPast ? 'Past' : 'Scheduled'}
+                            </span>
+                          )}
+                      </div>
+
+                        {/* Scheduled Information */}
+                        {isScheduled && scheduledSession && (
+                          <div className="mb-4 p-3 bg-white/50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 mb-2">
+                              <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              <span className="font-medium">
+                                {new Date(scheduledSession.scheduledAt).toLocaleString('en-US', {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            {scheduledSession.googleMeetLink && (
+                              <a
+                                href={scheduledSession.googleMeetLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                <Video className="w-4 h-4" />
+                                Join Meeting
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                      <div className="mt-4">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            {isCompleted ? 'Session Summary:' : isScheduled ? 'Preparation Notes:' : 'Session Notes:'}
+                          </label>
+                          <div>
+                            {call.notes ? (
+                              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                  {call.notes}
+                                </p>
+                                {call.updatedAt && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                    Last updated: {new Date(call.updatedAt).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                                <p className="text-gray-500 dark:text-gray-400 italic bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-sm">
+                                  {isCompleted 
+                                    ? "No summary added yet. Add notes about what was discussed in this call."
+                                    : isScheduled 
+                                    ? "No preparation notes yet. Add what the candidate should prepare or discuss."
+                                    : "No notes yet. Add what the candidate needs to do or prepare for this call."}
+                              </p>
+                            )}
+                            <button
+                              onClick={() => {
+                                setEditingCallNumber(call.callNumber)
+                                setNoteText(call.notes || '')
+                                setNotesModalOpen(true)
+                              }}
+                              className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
+                            >
+                              <FileText className="w-4 h-4" />
+                              {call.notes ? 'Edit Notes' : 'Add Notes'}
+                            </button>
+                          </div>
+                      </div>
+                    </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Scheduled Mentoring Sessions */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  Mentoring Sessions
+                  Scheduled Sessions
                 </h2>
                 {scheduledSessions.length > 0 && (
                   <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -846,7 +1157,7 @@ export default function AdminUserDetail() {
                 </div>
               ) : scheduledSessions.length === 0 ? (
                 <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  No sessions scheduled yet
+                  No sessions scheduled yet. Admin will coordinate and schedule the call. You will also get the meeting link over here
                 </p>
               ) : (
                 <div className="space-y-3">
@@ -914,8 +1225,7 @@ export default function AdminUserDetail() {
                             )}
                           </div>
                         </div>
-                        {isAdmin && (
-                          <button
+            <button
                             onClick={() => setDeleteSessionModal({ userId: session.userId, callNumber: session.callNumber })}
                             className={`text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors ${
                               isPast ? 'opacity-50' : ''
@@ -923,9 +1233,8 @@ export default function AdminUserDetail() {
                             title="Delete session"
                           >
                             <Trash2 className={`${isPast ? 'w-4 h-4' : 'w-5 h-5'}`} />
-                          </button>
-                        )}
-                      </div>
+            </button>
+          </div>
                     )
                   })}
                 </div>
@@ -934,9 +1243,9 @@ export default function AdminUserDetail() {
           </>
         ) : (
           <>
-            {/* Job Stats Component - Using current jobs for display */}
+            {/* Job Stats Component */}
         <JobStats 
-          jobs={jobs} 
+          jobs={jobsForStats} 
           goalPerDay={user.goalPerDay || 3}
           timeFilter={timeFilter}
           onTimeFilterChange={setTimeFilter}
@@ -945,19 +1254,19 @@ export default function AdminUserDetail() {
             {/* Jobs List with Pagination */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-                Applied Jobs ({filteredJobs.length})
+                Applied Jobs ({totalJobsCount})
           </h2>
               {jobsLoading ? (
                 <JobsListSkeleton />
               ) : (
                 <>
           <div className="space-y-4">
-            {filteredJobs.length === 0 ? (
+            {jobs.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-                No jobs applied yet
+                No jobs found {timeFilter !== 'all' ? `in the selected time period` : ''}
               </p>
             ) : (
-              filteredJobs.map((job) => (
+              jobs.map((job) => (
                 <div
                   key={job.id}
                   className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
@@ -988,8 +1297,8 @@ export default function AdminUserDetail() {
             )}
               </div>
                   
-                  {/* Pagination */}
-                  {jobsPagination.totalPages > 1 && (
+                  {/* Pagination - Only show when not filtering */}
+                  {timeFilter === 'all' && jobsPagination.totalPages > 1 && (
                     <Pagination
                       currentPage={jobsPage}
                       totalPages={jobsPagination.totalPages}
@@ -1006,7 +1315,7 @@ export default function AdminUserDetail() {
         )}
 
         {/* Schedule Call Modal */}
-        {isAdmin && showScheduleForm && (
+        {showScheduleForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-md">
               <div className="p-6">
@@ -1141,145 +1450,6 @@ export default function AdminUserDetail() {
         </div>
         )}
 
-        {/* Delete User Confirmation Modal */}
-        {isAdmin && showDeleteModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-md">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <Trash2 className="w-6 h-6 text-red-600" />
-                    Delete User
-                  </h2>
-                  <button
-                    onClick={() => setShowDeleteModal(false)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-gray-100">{user?.fullName || user?.email}</span>? This will perform a soft delete and the user will be marked as deleted.
-                  </p>
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    onClick={handleDeleteUser}
-                    disabled={isDeleting}
-                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                  >
-                    {isDeleting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Deleting...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="w-4 h-4" />
-                        Delete User
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setShowDeleteModal(false)}
-                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    <X className="w-4 h-4" />
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Password Confirmation Modal for Verification Toggle */}
-        {isAdmin && showPasswordModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-md">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                    <Lock className="w-6 h-6 text-blue-600" />
-                    Confirm Password
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setShowPasswordModal(false)
-                      setPassword('')
-                    }}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      {user?.verifiedByAdmin
-                        ? 'Enter your password to revoke verification for this user.'
-                        : 'Enter your password to verify this user.'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Your Password
-                    </label>
-                    <input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your admin password"
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleToggleVerification()
-                        }
-                      }}
-                    />
-                  </div>
-
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      onClick={handleToggleVerification}
-                      disabled={isTogglingVerification || !password}
-                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                    >
-                      {isTogglingVerification ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          {user?.verifiedByAdmin ? 'Revoking...' : 'Verifying...'}
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4" />
-                          {user?.verifiedByAdmin ? 'Revoke Verification' : 'Verify User'}
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowPasswordModal(false)
-                        setPassword('')
-                      }}
-                      className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors flex items-center gap-2"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Delete Session Confirmation Modal */}
         {deleteSessionModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1303,34 +1473,130 @@ export default function AdminUserDetail() {
                     Are you sure you want to delete Call {deleteSessionModal.callNumber}? This will permanently remove the scheduled session data from the database.
                   </p>
 
-                  <div className="flex gap-3 pt-4">
-                    <button
+                <div className="flex gap-3 pt-4">
+                  <button
                       onClick={handleDeleteSession}
                       disabled={isDeletingSession}
-                      className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                    >
+                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
                       {isDeletingSession ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          Deleting...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="w-4 h-4" />
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
                           Delete
-                        </>
-                      )}
-                    </button>
-                    <button
+                      </>
+                    )}
+                  </button>
+                  <button
                       onClick={() => setDeleteSessionModal(null)}
                       disabled={isDeletingSession}
                       className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notes Editing Modal */}
+        {notesModalOpen && editingCallNumber && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-3xl max-h-[90vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <FileText className="w-6 h-6 text-blue-600" />
+                    {(() => {
+                      const scheduledSession = scheduledSessions.find(s => s.callNumber === editingCallNumber)
+                      const isCompleted = scheduledSession?.completedAt
+                      const isScheduled = !!scheduledSession
+                      return isCompleted ? 'Session Summary' : isScheduled ? 'Preparation Notes' : 'Session Notes'
+                    })()}
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Mentor Call - {editingCallNumber}
+                  </p>
+                </div>
+                  <button
+                    onClick={() => {
+                    setNotesModalOpen(false)
+                    setEditingCallNumber(null)
+                    setNoteText('')
+                    }}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                  <X className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                  </button>
+                </div>
+
+              {/* Formatting Hints */}
+              <div className="px-6 pt-4 pb-2 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <List className="w-3 h-3" />
+                    <span>Type "- " to create ➤ bullet points</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <FileText className="w-3 h-3" />
+                    <span>Press Enter after ➤ to continue bullet list</span>
+                  </div>
+                </div>
+                  </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <textarea
+                  ref={notesTextareaRef}
+                  value={noteText}
+                  onChange={handleNotesChange}
+                  onKeyDown={handleNotesKeyDown}
+                  className="w-full min-h-[400px] p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm leading-relaxed resize-none"
+                  placeholder={
+                    (() => {
+                      const scheduledSession = scheduledSessions.find(s => s.callNumber === editingCallNumber)
+                      const isCompleted = scheduledSession?.completedAt
+                      const isScheduled = !!scheduledSession
+                      return isCompleted 
+                        ? "Add what was discussed in this call, key takeaways, action items...\n\nExample:\n➤ Discussed resume improvements\n➤ Reviewed job application strategy\n➤ Action items: Update LinkedIn profile" 
+                        : isScheduled 
+                        ? "Add what the candidate should prepare or discuss in this call...\n\nExample:\n➤ Review portfolio projects\n➤ Prepare questions about company culture\n➤ Bring updated resume" 
+                        : "Add notes about what the candidate needs to do or prepare for this call...\n\nExample:\n➤ Complete resume finalization\n➤ Research target companies\n➤ Prepare application materials"
+                    })()
+                  }
+                  autoFocus
+                    />
+                  </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => {
+                    setNotesModalOpen(false)
+                    setEditingCallNumber(null)
+                    setNoteText('')
+                      }}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors flex items-center gap-2"
                     >
                       <X className="w-4 h-4" />
                       Cancel
                     </button>
-                  </div>
-                </div>
+                  <button
+                  onClick={() => saveSessionNote(editingCallNumber, noteText)}
+                  disabled={savingNote}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                  <Save className="w-4 h-4" />
+                  {savingNote ? 'Saving...' : 'Save Notes'}
+                  </button>
               </div>
             </div>
           </div>

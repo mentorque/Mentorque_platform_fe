@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { useMentorRoute } from '../hooks/useMentorRoute'
+import { useNavigate } from 'react-router-dom'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
@@ -9,17 +8,16 @@ interface ProtectedAdminRouteProps {
 }
 
 /**
- * Protected route component for admin/mentor routes
- * Redirects to /admin or /mentor if not authenticated
+ * Protected route component for admin routes
+ * Redirects to /admin if not authenticated
  */
 export default function ProtectedAdminRoute({ children }: ProtectedAdminRouteProps) {
   const navigate = useNavigate()
-  const { apiPrefix, loginPath } = useMentorRoute()
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | 'unverified' | null>(null)
 
   useEffect(() => {
     checkAuth()
-  }, [apiPrefix])
+  }, [])
 
   const checkAuth = async () => {
     try {
@@ -30,7 +28,7 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const res = await fetch(`${API_URL}${apiPrefix}/me`, {
+      const res = await fetch(`${API_URL}/api/admin/me`, {
         credentials: 'include',
         headers,
       })
@@ -49,12 +47,12 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
         setIsAuthenticated(true)
       } else {
         setIsAuthenticated(false)
-        navigate(loginPath, { replace: true })
+        navigate('/admin', { replace: true })
       }
     } catch (error) {
       console.error('Auth check error:', error)
       setIsAuthenticated(false)
-      navigate(loginPath, { replace: true })
+      navigate('/admin', { replace: true })
     }
   }
 
@@ -103,7 +101,7 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
                   // Clear token from localStorage on logout
                   localStorage.removeItem('adminToken')
                   
-                  await fetch(`${API_URL}${apiPrefix}/logout`, {
+                  await fetch(`${API_URL}/api/admin/logout`, {
                     method: 'POST',
                     credentials: 'include',
                   })
@@ -111,7 +109,7 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
                   console.error('Logout error:', error)
                 } finally {
                   localStorage.removeItem('adminInfo')
-                  navigate(loginPath, { replace: true })
+                  navigate('/admin', { replace: true })
                 }
               }}
               className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
@@ -122,7 +120,7 @@ export default function ProtectedAdminRoute({ children }: ProtectedAdminRoutePro
               onClick={() => {
                 localStorage.removeItem('adminToken')
                 localStorage.removeItem('adminInfo')
-                navigate(loginPath, { replace: true })
+                navigate('/admin', { replace: true })
               }}
               className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
             >

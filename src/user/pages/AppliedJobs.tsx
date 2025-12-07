@@ -55,6 +55,8 @@ export default function AppliedJobs() {
   const [loading, setLoading] = useState(true);
   const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('All');
+  const [timePeriod, setTimePeriod] = useState<string>('all');
+  const [jobStats, setJobStats] = useState({ last7Days: 0, last10Days: 0, last30Days: 0, total: 0 });
   const [showAddJobModal, setShowAddJobModal] = useState(false);
   const [newJob, setNewJob] = useState({
     title: '',
@@ -87,6 +89,13 @@ export default function AppliedJobs() {
 
     return () => unsubscribe();
   }, []);
+
+  // Refetch when time period changes
+  useEffect(() => {
+    if (auth.currentUser) {
+      fetchAppliedJobs();
+    }
+  }, [timePeriod]);
 
   const fetchDailyGoal = async (user?: any) => {
     try {
@@ -166,7 +175,11 @@ export default function AppliedJobs() {
       }
 
       const token = await currentUser.getIdToken();
-      const response = await fetch(`${API_URL}/api/applied-jobs`, {
+      const url = timePeriod === 'all' 
+        ? `${API_URL}/api/applied-jobs`
+        : `${API_URL}/api/applied-jobs?period=${timePeriod}`;
+      
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -179,6 +192,9 @@ export default function AppliedJobs() {
 
       const data = await response.json();
       setJobs(data.jobs || []);
+      if (data.stats) {
+        setJobStats(data.stats);
+      }
     } catch (error: any) {
       console.error('Error fetching applied jobs:', error);
       toast.error(error.message || 'Failed to load applied jobs');
@@ -404,14 +420,34 @@ export default function AppliedJobs() {
       dateCounts[date] = (dateCounts[date] || 0) + 1;
     });
 
-    // Get date range (last 30 days or all dates if less)
-    const dates = Object.keys(dateCounts).sort();
-    const startDate = new Date(dates[0]);
+    // Determine date range based on time period filter
+    let startDate: Date;
     const endDate = new Date();
+    
+    if (timePeriod === '7') {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+    } else if (timePeriod === '10') {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 10);
+    } else if (timePeriod === '30') {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+    } else {
+      // 'all' - use earliest date from jobs or last 30 days
+      const dates = Object.keys(dateCounts).sort();
+      if (dates.length > 0) {
+        startDate = new Date(dates[0]);
+      } else {
+        startDate = new Date();
+        startDate.setDate(startDate.getDate() - 30);
+      }
+    }
     
     // Fill in missing dates with 0
     const result: { date: string; applications: number; displayDate: string }[] = [];
     const currentDate = new Date(startDate);
+    currentDate.setHours(0, 0, 0, 0);
     
     while (currentDate <= endDate) {
       const dateStr = currentDate.toISOString().split('T')[0];
@@ -424,8 +460,7 @@ export default function AppliedJobs() {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Return last 30 days
-    return result.slice(-30);
+    return result;
   };
 
   // Prepare data for Jobs by Status chart
@@ -639,7 +674,12 @@ export default function AppliedJobs() {
                     Application Trend
                   </h2>
                   <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                    Jobs applied per day (Last 30 days)
+                    Jobs applied per day ({
+                      timePeriod === '7' ? 'Last 7 Days' :
+                      timePeriod === '10' ? 'Last 10 Days' :
+                      timePeriod === '30' ? 'Last 30 Days' :
+                      'All Time'
+                    })
                   </p>
                 </div>
               </div>
@@ -878,6 +918,53 @@ export default function AppliedJobs() {
                 </button>
               );
             })}
+          </div>
+
+          {/* Time Period Filter */}
+          <div className="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mr-2">Time Period:</span>
+              <button
+                onClick={() => setTimePeriod('all')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  timePeriod === 'all'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                All Time ({jobStats.total})
+              </button>
+              <button
+                onClick={() => setTimePeriod('7')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  timePeriod === '7'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                Last 7 Days ({jobStats.last7Days})
+              </button>
+              <button
+                onClick={() => setTimePeriod('10')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  timePeriod === '10'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                Last 10 Days ({jobStats.last10Days})
+              </button>
+              <button
+                onClick={() => setTimePeriod('30')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  timePeriod === '30'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                Last 30 Days ({jobStats.last30Days})
+              </button>
+            </div>
           </div>
         </div>
 

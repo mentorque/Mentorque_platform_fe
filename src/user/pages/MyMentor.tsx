@@ -47,22 +47,6 @@ export default function MyMentor() {
   const [error, setError] = useState<string | null>(null)
   const [scheduledCalls, setScheduledCalls] = useState<ScheduledCall[]>([])
 
-  // Static list of mentor images from /mentors folder
-  const mentorImages = [
-    '/mentors/Frame 2121453442.png',
-    '/mentors/Frame 2121453443.png',
-    '/mentors/Frame 2121453444.png',
-    '/mentors/Frame 2121453445.png',
-    '/mentors/Frame 2121453446.png',
-    '/mentors/Frame 2121453447.png',
-    '/mentors/Frame 2121453448.png',
-    '/mentors/Frame 2121453449.png',
-    '/mentors/Frame 2121453450.png',
-    '/mentors/Frame 2121453451.png',
-    '/mentors/Frame 2121453452.png',
-    '/mentors/Frame 2121453453.png',
-  ]
-
   useEffect(() => {
     // Wait for auth state to be ready before loading data
     // Protected component ensures user is authenticated, but we need to wait for auth.currentUser
@@ -178,14 +162,33 @@ export default function MyMentor() {
     }
   }
 
-  // Get mentor image URL for assigned mentor - Cloudinary or fallback
-  const getAssignedMentorImage = (mentor: Mentor) => {
-    // If mentor has a picture URL (from Cloudinary), use it
-    if (mentor.picture && mentor.picture.startsWith('http')) {
-      return mentor.picture
+  // Get initials for avatar
+  const getInitials = (name: string) => {
+    if (!name) return '?'
+    const parts = name.trim().split(' ')
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
     }
-    // Fallback to first mentor image
-    return '/mentors/Frame 2121453442.png'
+    return name.substring(0, 2).toUpperCase()
+  }
+
+  // Generate consistent color from name
+  const getColorFromName = (name: string) => {
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500',
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-indigo-500',
+      'bg-red-500',
+      'bg-yellow-500',
+      'bg-teal-500',
+    ]
+    let hash = 0
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return colors[Math.abs(hash) % colors.length]
   }
 
   if (loading) {
@@ -224,15 +227,17 @@ export default function MyMentor() {
                   <div className="bg-gray-50 dark:bg-gray-800/50 p-8 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex flex-col md:flex-row items-center gap-6">
                       <div className="w-32 h-32 rounded-full bg-white dark:bg-gray-700 border-4 border-gray-200 dark:border-gray-600 shadow-lg flex items-center justify-center overflow-hidden">
-                        <img
-                          src={getAssignedMentorImage(assignedMentor)}
-                          alt={assignedMentor.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.src = '/mentors/Frame 2121453442.png'
-                          }}
-                        />
+                        {assignedMentor.picture ? (
+                          <img
+                            src={assignedMentor.picture}
+                            alt={assignedMentor.name}
+                            className="w-full h-full object-contain p-2"
+                          />
+                        ) : (
+                          <div className={`w-full h-full flex items-center justify-center ${getColorFromName(assignedMentor.name)} text-white text-3xl font-bold`}>
+                            {getInitials(assignedMentor.name)}
+                          </div>
+                        )}
                     </div>
                     <div className="flex-1 text-center md:text-left">
                         <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{assignedMentor.name}</h2>
@@ -361,32 +366,150 @@ export default function MyMentor() {
               <UserProgress scheduledCalls={scheduledCalls} />
             </div>
 
-            {/* Other Mentors Section - Static Images */}
-            <div className="mt-20">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-12 text-center">
-                Other Mentors at Mentorque
+            {/* Meet Our Mentors Section */}
+            <div className="mb-12">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4 text-center">
+                Meet Our Expert Mentors
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 md:gap-8">
-                {mentorImages.map((imagePath, index) => (
-                  <div
-                    key={index}
-                    className="group relative bg-white dark:bg-gradient-to-br dark:from-white/98 dark:via-gray-50/95 dark:to-white/98 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-200 dark:border-gray-200/30"
-                  >
-                    <div className="aspect-[3/4] flex items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-white dark:from-white/98 dark:via-gray-50/98 dark:to-white/98">
-                      <img
-                        src={imagePath}
-                        alt={`Mentor ${index + 1}`}
-                        className="w-full h-full object-contain rounded-lg group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.src = '/mentors/Frame 2121453442.png' // Fallback
-                        }}
-                      />
-                    </div>
+              <p className="text-gray-600 dark:text-gray-400 text-center mb-8 max-w-2xl mx-auto">
+                Our mentors are industry professionals from top companies who are passionate about helping you succeed in your career journey.
+              </p>
+              
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {/* Mentor 1 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453442.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
                   </div>
-                ))}
+                </div>
+
+                {/* Mentor 2 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/20 dark:to-blue-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453443.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 3 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/20 dark:to-pink-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453444.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 4 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-pink-100 to-red-100 dark:from-pink-900/20 dark:to-red-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453445.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 5 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-100 to-blue-100 dark:from-indigo-900/20 dark:to-blue-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453446.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 6 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-teal-100 to-green-100 dark:from-teal-900/20 dark:to-green-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453447.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 7 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-100 to-orange-100 dark:from-yellow-900/20 dark:to-orange-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453448.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 8 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-red-100 to-pink-100 dark:from-red-900/20 dark:to-pink-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453449.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 9 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-cyan-100 to-blue-100 dark:from-cyan-900/20 dark:to-blue-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453450.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 10 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/20 dark:to-purple-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453451.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 11 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-fuchsia-100 to-pink-100 dark:from-fuchsia-900/20 dark:to-pink-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453452.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
+
+                {/* Mentor 12 */}
+                <div className="group relative">
+                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-rose-100 to-red-100 dark:from-rose-900/20 dark:to-red-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+                    <img
+                      src="/mentors/Frame 2121453453.png"
+                      alt="Mentor"
+                      className="w-full h-full object-contain p-2"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
+
           </div>
         </section>
       </div>

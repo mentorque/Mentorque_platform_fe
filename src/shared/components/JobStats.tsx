@@ -17,9 +17,12 @@ interface JobStatsProps {
 }
 
 export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onTimeFilterChange }: JobStatsProps) {
+  // Ensure jobs is a valid array and filter out any invalid entries
+  const validJobs = Array.isArray(jobs) ? jobs.filter(job => job && job.id && job.appliedDate) : []
+  
   // Filter jobs based on time filter
   const getFilteredJobs = () => {
-    if (timeFilter === 'all') return jobs
+    if (timeFilter === 'all') return validJobs
     
     const now = new Date()
     const filterDate = new Date()
@@ -30,16 +33,16 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
       filterDate.setDate(now.getDate() - 7)
     }
     
-    return jobs.filter(job => {
+    return validJobs.filter(job => {
       const jobDate = new Date(job.appliedDate)
       return jobDate >= filterDate
     })
   }
   
-  const filteredJobs = getFilteredJobs()
+  const filteredJobs = getFilteredJobs() || []
   // Calculate streak data
   const calculateStreakData = () => {
-    if (filteredJobs.length === 0) return { currentStreak: 0, todayCount: 0, needToday: goalPerDay }
+    if (!filteredJobs || filteredJobs.length === 0) return { currentStreak: 0, todayCount: 0, needToday: goalPerDay }
 
     const jobsByDate: { [key: string]: number } = {}
     filteredJobs.forEach((job) => {
@@ -234,10 +237,10 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
               </div>
               <div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                  {filteredJobs.length}
+                  {filteredJobs?.length || 0}
                 </div>
                 <div className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-                  Career Moves 🚀
+                  Total No of Applications
                 </div>
               </div>
             </div>

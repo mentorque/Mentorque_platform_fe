@@ -21,17 +21,23 @@ import AdminLogin from '@/admin/pages/AdminLogin'
 import AdminSignup from '@/admin/pages/AdminSignup'
 import AdminDashboard from '@/admin/pages/AdminDashboard'
 import AdminUserDetail from '@/admin/pages/AdminUserDetail'
-
-// Route guards
 import ProtectedAdminRoute from '@/admin/components/ProtectedAdminRoute'
 import PublicAdminRoute from '@/admin/components/PublicAdminRoute'
+
+// Mentor pages
+import MentorLogin from '@/mentor/pages/MentorLogin'
+import MentorSignup from '@/mentor/pages/MentorSignup'
+import MentorDashboard from '@/mentor/pages/MentorDashboard'
+import MentorUserDetail from '@/mentor/pages/MentorUserDetail'
+import ProtectedMentorRoute from '@/mentor/components/ProtectedMentorRoute'
+import PublicMentorRoute from '@/mentor/components/PublicMentorRoute'
 
 function App() {
   return (
     <ThemeProvider>
       <Router>
         <Routes>
-          {/* Admin Routes - Must come before catch-all */}
+          {/* ==================== ADMIN ROUTES ==================== */}
           <Route
             path="/admin"
             element={
@@ -65,41 +71,41 @@ function App() {
             }
           />
 
-          {/* Mentor Routes - Duplicate of admin routes */}
+          {/* ==================== MENTOR ROUTES ==================== */}
           <Route
             path="/mentor"
             element={
-              <PublicAdminRoute>
-                <AdminLogin />
-              </PublicAdminRoute>
+              <PublicMentorRoute>
+                <MentorLogin />
+              </PublicMentorRoute>
             }
           />
           <Route
             path="/mentor/signup"
             element={
-              <PublicAdminRoute>
-                <AdminSignup />
-              </PublicAdminRoute>
+              <PublicMentorRoute>
+                <MentorSignup />
+              </PublicMentorRoute>
             }
           />
           <Route
             path="/mentor/dashboard"
             element={
-              <ProtectedAdminRoute>
-                <AdminDashboard />
-              </ProtectedAdminRoute>
+              <ProtectedMentorRoute>
+                <MentorDashboard />
+              </ProtectedMentorRoute>
             }
           />
           <Route
             path="/mentor/users/:id"
             element={
-              <ProtectedAdminRoute>
-                <AdminUserDetail />
-              </ProtectedAdminRoute>
+              <ProtectedMentorRoute>
+                <MentorUserDetail />
+              </ProtectedMentorRoute>
             }
           />
 
-          {/* User Routes */}
+          {/* ==================== USER ROUTES ==================== */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -113,6 +119,8 @@ function App() {
           <Route path="/cheat-sheet-prep" element={<CheatSheetPrep />} />
           <Route path="/mock-interviews" element={<MockInterview />} />
           <Route path="/my-mentor" element={<MyMentor />} />
+          
+          {/* Default routes */}
           <Route path="/" element={<Dashboard />} />
           <Route path="*" element={<Dashboard />} />
         </Routes>
