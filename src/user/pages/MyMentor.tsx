@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Navbar from '@/shared/components/Navbar'
 import Protected from '@/shared/components/Protected'
 import UserProgress from '@/user/components/UserProgress'
@@ -81,6 +81,10 @@ export default function MyMentor() {
   const [error, setError] = useState<string | null>(null)
   const [scheduledCalls, setScheduledCalls] = useState<ScheduledCall[]>([])
   const [mentorNotes, setMentorNotes] = useState<CallNotes[]>(getDefaultCallNotes())
+  const visibleMentorNotes = useMemo(
+    () => mentorNotes.filter((note) => note.notes.trim().length > 0),
+    [mentorNotes]
+  )
 
   useEffect(() => {
     // Wait for auth state to be ready before loading data
@@ -423,40 +427,42 @@ export default function MyMentor() {
             )}
 
             {/* Mentor Notes */}
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 text-center">
-                Notes from Your Mentor
-              </h2>
-              <div className="grid gap-4">
-                {mentorNotes.map((note) => (
-                  <div key={note.callNumber} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                          Call {note.callNumber}
-                        </p>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            {visibleMentorNotes.length > 0 && (
+              <div className="mb-8 space-y-3">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 text-center">
+                  Notes from Your Mentor
+                </h2>
+                <div className="grid gap-3">
+                  {visibleMentorNotes
+                    .map((note) => (
+                      <div
+                        key={note.callNumber}
+                        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 text-sm leading-snug shadow-sm"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400">
+                            Call {note.callNumber}
+                          </p>
+                          {note.updatedAt && (
+                            <p className="text-xs text-gray-400">
+                              {new Date(note.updatedAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </p>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-900 dark:text-gray-100 font-semibold mb-1">
                           {note.title}
-                        </h3>
-                      </div>
-                      {note.updatedAt && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Updated {new Date(note.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </p>
-                      )}
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="text-blue-500 dark:text-blue-400 mt-1">
-                        <FileText className="w-5 h-5" />
+                        <p className="text-gray-600 dark:text-gray-300 whitespace-pre-line">
+                          {note.notes}
+                        </p>
                       </div>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line min-h-[3rem]">
-                        {note.notes || 'No mentor notes yet for this call.'}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                    ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* User Progress - Shows Next Available Call */}
             <div className="mb-12">
