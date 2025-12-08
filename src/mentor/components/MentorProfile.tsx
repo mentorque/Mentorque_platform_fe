@@ -105,7 +105,7 @@ export default function MentorProfile({ adminInfo, onUpdate }: MentorProfileProp
       formDataToSend.append('company', formData.company)
       formDataToSend.append('role', formData.role)
       formDataToSend.append('expertise', formData.expertise)
-      formDataToSend.append('background', formData.availability)
+      formDataToSend.append('background', formData.background)
       formDataToSend.append('availability', formData.availability)
 
       if (selectedFile) {

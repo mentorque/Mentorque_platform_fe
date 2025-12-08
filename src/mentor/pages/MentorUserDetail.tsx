@@ -65,6 +65,7 @@ export default function MentorUserDetail() {
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [jobs, setJobs] = useState<AppliedJob[]>([])
   const [jobsLoading, setJobsLoading] = useState(false)
+  const [statsLoading, setStatsLoading] = useState(false)
   const [jobsStats, setJobsStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [adminInfo, setAdminInfo] = useState<any>(null)
@@ -115,7 +116,7 @@ export default function MentorUserDetail() {
   useEffect(() => {
     if (user?.id) {
       if (activeTab === 'jobs') {
-        loadJobs(jobsPage, 10)
+        loadJobs(jobsPage)
       }
       if (activeTab === 'calls') {
         loadSessionNotes()
@@ -127,15 +128,14 @@ export default function MentorUserDetail() {
   useEffect(() => {
     if (user?.id && activeTab === 'jobs') {
       setStatsJobs([])
-      loadJobsStats()
-      loadJobsForStats()
+      refreshJobAnalytics()
     }
   }, [user?.id, activeTab, timeFilter])
 
   // Reload jobs when page or filter changes
   useEffect(() => {
     if (user?.id && activeTab === 'jobs') {
-      loadJobs(jobsPage, 10)
+      loadJobs(jobsPage)
     }
   }, [jobsPage, timeFilter])
 
@@ -232,8 +232,31 @@ export default function MentorUserDetail() {
     }
   }, [showMentorSelector, mentors.length])
 
+  const determineStatsFetchLimit = (stats?: any) => {
+    const baseLimit = timeFilter === 'all' ? 200 : 1000
+    const totalCount = stats?.total ?? stats?.filteredTotal ?? 0
+    if (!totalCount || totalCount <= baseLimit) {
+      return baseLimit
+    }
+    return Math.min(totalCount, 10000)
+  }
+
+  const refreshJobAnalytics = async () => {
+    if (!user?.id) return
+    setStatsLoading(true)
+    try {
+      const stats = await loadJobsStats()
+      const limit = determineStatsFetchLimit(stats)
+      await loadJobsForStats(limit)
+    } catch (error) {
+      console.error('Error refreshing job analytics:', error)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
   const loadJobsStats = async () => {
-    if (!id) return
+    if (!id) return null
     
     try {
       const query = new URLSearchParams({ timeFilter })
@@ -245,20 +268,23 @@ export default function MentorUserDetail() {
       if (res.ok) {
         const data = await res.json()
         setJobsStats(data.stats)
+        return data.stats
       }
     } catch (error) {
       console.error('Error loading jobs stats:', error)
     }
+    return null
   }
 
-  const loadJobsForStats = async () => {
+  const loadJobsForStats = async (desiredLimit?: number) => {
     if (!id) return
 
     try {
-      const statsLimit = timeFilter === 'all' ? 200 : 1000
+      const baseLimit = timeFilter === 'all' ? 200 : 1000
+      const limit = Math.min(Math.max(desiredLimit ?? baseLimit, baseLimit), 10000)
       const params = new URLSearchParams({
         page: '1',
-        limit: statsLimit.toString(),
+        limit: limit.toString(),
         timeFilter,
         forStats: 'true',
       })
@@ -281,7 +307,7 @@ export default function MentorUserDetail() {
     }
   }
 
-  const loadJobs = async (page: number, limit: number = 10) => {
+  const loadJobs = async (page: number) => {
     if (!id) {
       console.warn('⚠️ No user ID provided for loading jobs')
       return
@@ -289,8 +315,15 @@ export default function MentorUserDetail() {
     
     try {
       setJobsLoading(true)
-      console.log('🔄 Loading jobs for user:', id, 'page:', page, 'limit:', limit, 'filter:', timeFilter)
-      const url = `${API_URL}/api/mentor/users/${id}/jobs?page=${page}&limit=${limit}&timeFilter=${timeFilter}`
+      console.log('🔄 Loading jobs for user:', id, 'page:', page, 'filter:', timeFilter)
+      const pageSize = 10
+      const qs = new URLSearchParams({
+        page: page.toString(),
+        limit: pageSize.toString(),
+        timeFilter,
+        forStats: 'false',
+      })
+      const url = `${API_URL}/api/mentor/users/${id}/jobs?${qs.toString()}`
       const res = await fetch(url, {
         credentials: 'include',
         headers: getMentorHeaders(),
@@ -762,7 +795,7 @@ export default function MentorUserDetail() {
   }
 
   const totalJobsCount = getTotalJobsCount()
-  const jobsForStats = statsJobs.length > 0 ? statsJobs : jobs
+  const jobsForStats = statsJobs.length > 0 ? statsJobs : statsLoading ? [] : jobs
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700">
@@ -1244,12 +1277,16 @@ export default function MentorUserDetail() {
         ) : (
           <>
             {/* Job Stats Component */}
-        <JobStats 
-          jobs={jobsForStats} 
-          goalPerDay={user.goalPerDay || 3}
-          timeFilter={timeFilter}
-          onTimeFilterChange={setTimeFilter}
-        />
+        {statsLoading ? (
+          <JobStatsSkeleton />
+        ) : (
+          <JobStats
+            jobs={jobsForStats}
+            goalPerDay={user.goalPerDay || 3}
+            timeFilter={timeFilter}
+            onTimeFilterChange={setTimeFilter}
+          />
+        )}
 
             {/* Jobs List with Pagination */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
@@ -1297,8 +1334,8 @@ export default function MentorUserDetail() {
             )}
               </div>
                   
-                  {/* Pagination - Only show when not filtering */}
-                  {timeFilter === 'all' && jobsPagination.totalPages > 1 && (
+                  {/* Pagination */}
+                  {jobsPagination.totalPages > 1 && (
                     <Pagination
                       currentPage={jobsPage}
                       totalPages={jobsPagination.totalPages}

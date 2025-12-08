@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Video, User, ExternalLink, Calendar, Pencil, Trash2, X, Save } from 'lucide-react'
+import { Video, User, ExternalLink, Calendar, Pencil, Trash2, X, Save, UserCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
@@ -13,6 +13,12 @@ interface ScheduledSession {
   scheduledAt: string
   googleMeetLink: string | null
   completedAt: string | null
+  mentor: {
+    id: string
+    name: string
+    email: string
+    picture: string | null
+  } | null
 }
 
 // Helper function to get preset description for each call
@@ -250,6 +256,14 @@ export default function MentoringSessions() {
                         {session.userName || session.userEmail}
                       </span>
                     </div>
+                    {session.mentor && (
+                      <div className="flex items-center gap-2 text-blue-100">
+                        <UserCheck className="w-4 h-4" />
+                        <span className="font-medium">
+                          Mentor: {session.mentor.name}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-blue-100">
                       <Calendar className="w-4 h-4" />
                       <span>

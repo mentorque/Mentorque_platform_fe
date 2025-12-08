@@ -41,6 +41,20 @@ interface Mentor {
   }
 }
 
+interface MentorStatMentee {
+  id: string
+  fullName: string | null
+  email: string
+  verifiedByAdmin: boolean
+  goalPerDay?: number
+}
+
+interface MentorStatsPayload {
+  totalMentees: number
+  totalCallsTaken: number
+  mentees?: MentorStatMentee[]
+}
+
 interface AdminStats {
   totalUsers: number
   totalMentors: number
@@ -81,6 +95,11 @@ export default function AdminDashboard() {
   })
   const [deletingMentor, setDeletingMentor] = useState<string | null>(null)
   const [deleteMentorModal, setDeleteMentorModal] = useState<{ id: string; name: string } | null>(null)
+  const [mentorStatsModal, setMentorStatsModal] = useState<{
+    mentor: Mentor | null
+    stats: MentorStatsPayload | null
+    loading: boolean
+  } | null>(null)
 
   useEffect(() => {
     checkAuthAndLoadData()
@@ -343,6 +362,44 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleViewMentorStats = async (mentor: Mentor) => {
+    try {
+      setMentorStatsModal({
+        mentor,
+        stats: null,
+        loading: true,
+      })
+
+      const token = localStorage.getItem('adminToken')
+      const headers: HeadersInit = {}
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const res = await fetch(`${API_URL}${apiPrefix}/mentors/${mentor.id}/stats`, {
+        credentials: 'include',
+        headers,
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setMentorStatsModal({
+          mentor: data.mentor,
+          stats: data.stats,
+          loading: false,
+        })
+      } else {
+        const error = await res.json().catch(() => ({ message: `HTTP ${res.status}: ${res.statusText}` }))
+        toast.error(error.message || error.error || 'Failed to load mentor stats')
+        setMentorStatsModal(null)
+      }
+    } catch (error: any) {
+      console.error('Error loading mentor stats:', error)
+      toast.error(error.message || 'Failed to load mentor stats')
+      setMentorStatsModal(null)
+    }
+  }
+
   if (loading && !adminInfo) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex items-center justify-center">
@@ -540,6 +597,7 @@ export default function AdminDashboard() {
             onPageChange={setMentorsPage}
             itemsPerPage={mentorsPagination.limit}
             onDeleteMentor={(id: string, name: string) => setDeleteMentorModal({ id, name })}
+            onViewMentorStats={handleViewMentorStats}
           />
         )}
 
@@ -591,6 +649,170 @@ export default function AdminDashboard() {
                   >
                     <X className="w-4 h-4" />
                     Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mentor Stats Modal */}
+        {mentorStatsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setMentorStatsModal(null)}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <UserCheck className="w-6 h-6 text-blue-600" />
+                    Mentor Statistics
+                  </h2>
+                  <button
+                    onClick={() => setMentorStatsModal(null)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                {mentorStatsModal.loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : mentorStatsModal.mentor && mentorStatsModal.stats ? (
+                  <div className="space-y-6">
+                    {/* Mentor Info */}
+                    <div className="flex items-center gap-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                      {mentorStatsModal.mentor.picture ? (
+                        <img
+                          src={mentorStatsModal.mentor.picture}
+                          alt={mentorStatsModal.mentor.name}
+                          className="w-20 h-20 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center text-white font-bold text-2xl ${
+                          ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-red-500', 'bg-yellow-500', 'bg-teal-500'][
+                            mentorStatsModal.mentor.name.charCodeAt(0) % 8
+                          ]
+                        }`}>
+                          {mentorStatsModal.mentor.name.split(' ').length >= 2 
+                            ? mentorStatsModal.mentor.name.split(' ')[0][0].toUpperCase() + mentorStatsModal.mentor.name.split(' ').slice(-1)[0][0].toUpperCase()
+                            : mentorStatsModal.mentor.name.substring(0, 2).toUpperCase()
+                          }
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                            {mentorStatsModal.mentor.name}
+                          </h3>
+                          {mentorStatsModal.mentor.verifiedByAdmin && (
+                            <ShieldCheck className="w-5 h-5 text-green-500" />
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{mentorStatsModal.mentor.email}</p>
+                        {mentorStatsModal.mentor.expertise && (
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-1">
+                            {mentorStatsModal.mentor.expertise}
+                          </p>
+                        )}
+                        {mentorStatsModal.mentor.company && mentorStatsModal.mentor.role && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {mentorStatsModal.mentor.role} at {mentorStatsModal.mentor.company}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Mentees</p>
+                            <p className="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">
+                              {mentorStatsModal.stats.totalMentees}
+                            </p>
+                          </div>
+                          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                            <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-6 border border-purple-200 dark:border-purple-800">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Total Calls Taken</p>
+                            <p className="text-3xl font-bold text-purple-900 dark:text-purple-100 mt-2">
+                              {mentorStatsModal.stats.totalCallsTaken}
+                            </p>
+                          </div>
+                          <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                            <Video className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Assigned Mentees</h3>
+                        {mentorStatsModal.stats.mentees && (
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {mentorStatsModal.stats.mentees.length} {mentorStatsModal.stats.mentees.length === 1 ? 'mentee' : 'mentees'}
+                          </span>
+                        )}
+                      </div>
+                      {mentorStatsModal.stats.mentees && mentorStatsModal.stats.mentees.length > 0 ? (
+                        <div className="max-h-64 overflow-y-auto space-y-3 border border-gray-200 dark:border-gray-700 rounded-2xl p-4">
+                          {mentorStatsModal.stats.mentees.map((mentee) => (
+                            <div
+                              key={mentee.id}
+                              className="flex items-center justify-between gap-3 bg-white dark:bg-gray-900/40 rounded-xl p-3 border border-gray-100 dark:border-gray-800 shadow-sm"
+                            >
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-gray-100">
+                                  {mentee.fullName || mentee.email}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {mentee.email}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                {typeof mentee.goalPerDay === 'number' && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Goal: {mentee.goalPerDay}/day
+                                  </p>
+                                )}
+                                <span
+                                  className={`text-xs font-semibold ${
+                                    mentee.verifiedByAdmin ? 'text-green-600' : 'text-yellow-600'
+                                  }`}
+                                >
+                                  {mentee.verifiedByAdmin ? 'Verified' : 'Pending'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          No mentees assigned yet.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 dark:text-gray-400">Failed to load mentor statistics</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setMentorStatsModal(null)}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors"
+                  >
+                    Close
                   </button>
                 </div>
               </div>
@@ -782,6 +1004,7 @@ function MentorsList({
   onPageChange,
   itemsPerPage,
   onDeleteMentor,
+  onViewMentorStats,
 }: {
   mentors: Mentor[]
   loading: boolean
@@ -791,6 +1014,7 @@ function MentorsList({
   onPageChange: (page: number) => void
   itemsPerPage: number
   onDeleteMentor: (id: string, name: string) => void
+  onViewMentorStats: (mentor: Mentor) => void
 }) {
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + mentors.length
@@ -826,7 +1050,8 @@ function MentorsList({
                   return (
                     <div
                       key={mentor.id}
-                      className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 hover:shadow-lg transition-shadow relative"
+                      className="border border-gray-200 dark:border-gray-700 rounded-xl p-6 hover:shadow-lg transition-shadow relative cursor-pointer"
+                      onClick={() => onViewMentorStats(mentor)}
                     >
                       <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                         <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
