@@ -42,6 +42,7 @@ export default function MentoringSessions() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [editingSession, setEditingSession] = useState<ScheduledSession | null>(null)
   const [deletingSession, setDeletingSession] = useState<ScheduledSession | null>(null)
+  const [markingSessionId, setMarkingSessionId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({
     googleMeetLink: '',
     scheduledAt: '',
@@ -178,6 +179,30 @@ export default function MentoringSessions() {
     }
   }
 
+  const handleMarkCompleted = async (session: ScheduledSession) => {
+    setMarkingSessionId(session.id)
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${session.userId}/calls/${session.callNumber}/complete`, {
+        method: 'PATCH',
+        credentials: 'include',
+      })
+
+      if (res.ok) {
+        toast.success(`Mentor call ${session.callNumber} marked as completed`)
+        await loadSessions()
+        window.dispatchEvent(new CustomEvent('userStatusUpdated'))
+      } else {
+        const error = await res.json().catch(() => ({}))
+        toast.error(error.message || 'Failed to mark call as completed')
+      }
+    } catch (error: any) {
+      console.error('Error marking call completed:', error)
+      toast.error(error.message || 'Failed to mark call as completed')
+    } finally {
+      setMarkingSessionId(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -211,44 +236,59 @@ export default function MentoringSessions() {
         </div>
       ) : (
         <div className="grid gap-6">
-          {sessions.map((session) => (
-            <div
-              key={session.id}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl border border-blue-500 p-6"
-            >
-              <div className="flex items-start gap-6">
-                <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Video className="w-10 h-10 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-2xl font-bold text-white">
-                        Mentor Call {session.callNumber}
-                      </h3>
-                      <span className="px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium">
-                        Scheduled
-                      </span>
-                    </div>
-                    {isAdmin && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEdit(session)}
-                          className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
-                          title="Edit session"
-                        >
-                          <Pencil className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => setDeletingSession(session)}
-                          className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
-                          title="Delete session"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    )}
+          {sessions.map((session) => {
+            const scheduledDate = new Date(session.scheduledAt)
+            const now = new Date()
+            const isPastDue = !session.completedAt && scheduledDate < now
+            const cardClasses = isPastDue
+              ? 'bg-white/10 text-white/90 border border-white/30 shadow-xl'
+              : 'bg-gradient-to-r from-blue-600 to-indigo-600 border border-blue-500 shadow-xl'
+            const statusBadge = session.completedAt
+              ? { label: 'Completed', classes: 'bg-green-500/20 text-green-100' }
+              : isPastDue
+              ? { label: 'Past Due', classes: 'bg-yellow-500/20 text-yellow-100' }
+              : { label: 'Scheduled', classes: 'bg-white/30 text-white' }
+
+            return (
+              <div
+                key={session.id}
+                className={`${cardClasses} rounded-2xl p-6`}
+              >
+                <div className="flex items-start gap-6">
+                  <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Video className="w-10 h-10 text-white" />
                   </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-2xl font-bold text-white">
+                          Mentor Call {session.callNumber}
+                        </h3>
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${statusBadge.classes}`}
+                        >
+                          {statusBadge.label}
+                        </span>
+                      </div>
+                      {isAdmin && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEdit(session)}
+                            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
+                            title="Edit session"
+                          >
+                            <Pencil className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingSession(session)}
+                            className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors"
+                            title="Delete session"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   <div className="space-y-2 mb-4">
                     <div className="flex items-center gap-2 text-blue-100">
                       <User className="w-4 h-4" />
@@ -291,6 +331,23 @@ export default function MentoringSessions() {
                       <ExternalLink className="w-4 h-4" />
                       Join Google Meet
                     </a>
+                  )}
+                  {session.completedAt && (
+                    <p className="mt-3 text-sm text-white/80">
+                      Completed {new Date(session.completedAt).toLocaleString()}
+                    </p>
+                  )}
+                  {isPastDue && isAdmin && (
+                    <div className="mt-4 flex items-center justify-between gap-3 text-xs text-white/80">
+                      <p>Session happened in the past. Mark it completed?</p>
+                      <button
+                        onClick={() => handleMarkCompleted(session)}
+                        disabled={markingSessionId === session.id}
+                        className="px-3 py-1 rounded-full bg-green-500/20 text-green-100 hover:bg-green-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {markingSessionId === session.id ? 'Marking...' : 'Mark completed'}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
