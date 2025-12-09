@@ -33,6 +33,9 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
       filterDate.setDate(now.getDate() - 7)
     }
     
+    // Set to start of day (00:00:00) to include all jobs from that day onwards
+    filterDate.setHours(0, 0, 0, 0)
+    
     return validJobs.filter(job => {
       const jobDate = new Date(job.appliedDate)
       return jobDate >= filterDate
@@ -93,11 +96,20 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
     if (dates.length === 0) return []
 
     const startDate = timeFilter === '7days' 
-      ? new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      ? (() => {
+          const date = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          date.setHours(0, 0, 0, 0)
+          return date
+        })()
       : timeFilter === '30days'
-      ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      ? (() => {
+          const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          date.setHours(0, 0, 0, 0)
+          return date
+        })()
       : new Date(dates[0])
     const endDate = new Date()
+    endDate.setHours(23, 59, 59, 999) // Include today's jobs
 
     const result: { date: string; applications: number; displayDate: string }[] = []
     const currentDate = new Date(startDate)
