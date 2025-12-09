@@ -49,11 +49,21 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
 
     const jobsByDate: { [key: string]: number } = {}
     filteredJobs.forEach((job) => {
-      const date = new Date(job.appliedDate).toISOString().split('T')[0]
+      // Use local date to avoid timezone issues
+      const jobDate = new Date(job.appliedDate)
+      const year = jobDate.getFullYear()
+      const month = String(jobDate.getMonth() + 1).padStart(2, '0')
+      const day = String(jobDate.getDate()).padStart(2, '0')
+      const date = `${year}-${month}-${day}`
       jobsByDate[date] = (jobsByDate[date] || 0) + 1
     })
 
-    const today = new Date().toISOString().split('T')[0]
+    // Use local date for today
+    const todayDate = new Date()
+    const year = todayDate.getFullYear()
+    const month = String(todayDate.getMonth() + 1).padStart(2, '0')
+    const day = String(todayDate.getDate()).padStart(2, '0')
+    const today = `${year}-${month}-${day}`
     const todayCount = jobsByDate[today] || 0
 
     // Calculate streak
@@ -61,7 +71,11 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
     const currentDate = new Date()
     
     while (true) {
-      const dateStr = currentDate.toISOString().split('T')[0]
+      // Use local date to match the job date counting
+      const year = currentDate.getFullYear()
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+      const day = String(currentDate.getDate()).padStart(2, '0')
+      const dateStr = `${year}-${month}-${day}`
       const count = jobsByDate[dateStr] || 0
       
       if (count >= goalPerDay) {
@@ -88,7 +102,12 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
   const getJobsPerDayData = () => {
     const dateCounts: { [key: string]: number } = {}
     filteredJobs.forEach((job) => {
-      const date = new Date(job.appliedDate).toISOString().split('T')[0]
+      // Use local date to avoid timezone issues
+      const jobDate = new Date(job.appliedDate)
+      const year = jobDate.getFullYear()
+      const month = String(jobDate.getMonth() + 1).padStart(2, '0')
+      const day = String(jobDate.getDate()).padStart(2, '0')
+      const date = `${year}-${month}-${day}`
       dateCounts[date] = (dateCounts[date] || 0) + 1
     })
 
@@ -116,7 +135,11 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
     const maxDays = timeFilter === '7days' ? 7 : timeFilter === '30days' ? 30 : 30
 
     while (currentDate <= endDate && result.length < maxDays) {
-      const dateStr = currentDate.toISOString().split('T')[0]
+      // Use local date to match the job date counting
+      const year = currentDate.getFullYear()
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0')
+      const day = String(currentDate.getDate()).padStart(2, '0')
+      const dateStr = `${year}-${month}-${day}`
       const displayDate = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       result.push({
         date: dateStr,
