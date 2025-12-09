@@ -349,10 +349,11 @@ export default function MentoringSessions() {
                       </button>
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
