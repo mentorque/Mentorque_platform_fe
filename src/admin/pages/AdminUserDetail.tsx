@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { UserCircle, Check, Save, X, Calendar, Video, FileText, Target, ShieldCheck, Shield, Lock, Trash2 } from 'lucide-react'
 import JobStats from '@/shared/components/JobStats'
@@ -108,6 +108,77 @@ export default function AdminUserDetail() {
     limit: 10,
   })
 
+  const determineStatsFetchLimit = (stats?: any) => {
+    const baseLimit = timeFilter === 'all' ? 200 : 1000
+    const totalCount = stats?.total ?? stats?.filteredTotal ?? 0
+    if (!totalCount || totalCount <= baseLimit) {
+      return baseLimit
+    }
+    return Math.min(totalCount, 10000)
+  }
+
+  const loadJobsStats = async () => {
+    if (!id) return null
+
+    try {
+      const params = new URLSearchParams({ timeFilter })
+      const res = await fetch(`${API_URL}/api/admin/users/${id}/jobs/stats?${params.toString()}`, {
+        credentials: 'include',
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setJobsStats(data.stats)
+        return data.stats
+      }
+    } catch (error) {
+      console.error('Error loading jobs stats:', error)
+    }
+    return null
+  }
+
+  const loadJobsForStats = async (desiredLimit?: number) => {
+    if (!id) return
+
+    try {
+      const baseLimit = timeFilter === 'all' ? 200 : 1000
+      const limit = Math.min(Math.max(desiredLimit ?? baseLimit, baseLimit), 10000)
+      const params = new URLSearchParams({
+        page: '1',
+        limit: limit.toString(),
+        timeFilter,
+        forStats: 'true',
+      })
+      const res = await fetch(`${API_URL}/api/admin/users/${id}/jobs?${params.toString()}`, {
+        credentials: 'include',
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        setStatsJobs(data.jobs || [])
+      } else {
+        setStatsJobs([])
+      }
+    } catch (error) {
+      console.error('Error loading stats jobs:', error)
+      setStatsJobs([])
+    }
+  }
+
+  const refreshJobAnalytics = useCallback(async () => {
+    if (!user?.id) return
+    setStatsLoading(true)
+    try {
+      const stats = await loadJobsStats()
+      const limit = determineStatsFetchLimit(stats)
+      await loadJobsForStats(limit)
+    } catch (error) {
+      console.error('Error refreshing job analytics:', error)
+    } finally {
+      setStatsLoading(false)
+    }
+  }, [user?.id, timeFilter, id])
+
   useEffect(() => {
     loadData()
   }, [id])
@@ -132,10 +203,10 @@ export default function AdminUserDetail() {
 
   useEffect(() => {
     if (user?.id && activeTab === 'jobs') {
-      setStatsJobs([])
+      // Refresh stats when tab is opened or filter changes
       refreshJobAnalytics()
     }
-  }, [user?.id, activeTab, timeFilter])
+  }, [user?.id, activeTab, timeFilter, refreshJobAnalytics])
 
   // Reload eligible calls when modal opens
   useEffect(() => {
@@ -143,6 +214,23 @@ export default function AdminUserDetail() {
       loadEligibleCalls()
     }
   }, [showScheduleForm, user?.id])
+
+  // Listen for job updates to refresh stats (for UI-based additions)
+  useEffect(() => {
+    const handleJobUpdate = () => {
+      if (user?.id && activeTab === 'jobs') {
+        refreshJobAnalytics()
+      }
+    }
+
+    window.addEventListener('jobUpdated', handleJobUpdate)
+    window.addEventListener('jobAdded', handleJobUpdate)
+
+    return () => {
+      window.removeEventListener('jobUpdated', handleJobUpdate)
+      window.removeEventListener('jobAdded', handleJobUpdate)
+    }
+  }, [user?.id, activeTab, refreshJobAnalytics])
 
   const loadData = async () => {
     try {
@@ -215,6 +303,11 @@ export default function AdminUserDetail() {
           totalPages: data.pagination.totalPages,
           limit: data.pagination.limit,
         })
+        
+        // Refresh stats when jobs list is updated
+        if (activeTab === 'jobs' && user?.id) {
+          refreshJobAnalytics()
+        }
       }
     } catch (error) {
       console.error('Error loading jobs:', error)
@@ -223,76 +316,6 @@ export default function AdminUserDetail() {
     }
   }
 
-  const determineStatsFetchLimit = (stats?: any) => {
-    const baseLimit = timeFilter === 'all' ? 200 : 1000
-    const totalCount = stats?.total ?? stats?.filteredTotal ?? 0
-    if (!totalCount || totalCount <= baseLimit) {
-      return baseLimit
-    }
-    return Math.min(totalCount, 10000)
-  }
-
-  const refreshJobAnalytics = async () => {
-    if (!user?.id) return
-    setStatsLoading(true)
-    try {
-      const stats = await loadJobsStats()
-      const limit = determineStatsFetchLimit(stats)
-      await loadJobsForStats(limit)
-    } catch (error) {
-      console.error('Error refreshing job analytics:', error)
-    } finally {
-      setStatsLoading(false)
-    }
-  }
-
-  const loadJobsStats = async () => {
-    if (!id) return null
-
-    try {
-      const params = new URLSearchParams({ timeFilter })
-      const res = await fetch(`${API_URL}/api/admin/users/${id}/jobs/stats?${params.toString()}`, {
-        credentials: 'include',
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        setJobsStats(data.stats)
-        return data.stats
-      }
-    } catch (error) {
-      console.error('Error loading jobs stats:', error)
-    }
-    return null
-  }
-
-  const loadJobsForStats = async (desiredLimit?: number) => {
-    if (!id) return
-
-    try {
-      const baseLimit = timeFilter === 'all' ? 200 : 1000
-      const limit = Math.min(Math.max(desiredLimit ?? baseLimit, baseLimit), 10000)
-      const params = new URLSearchParams({
-        page: '1',
-        limit: limit.toString(),
-        timeFilter,
-        forStats: 'true',
-      })
-      const res = await fetch(`${API_URL}/api/admin/users/${id}/jobs?${params.toString()}`, {
-        credentials: 'include',
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        setStatsJobs(data.jobs || [])
-      } else {
-        setStatsJobs([])
-      }
-    } catch (error) {
-      console.error('Error loading stats jobs:', error)
-      setStatsJobs([])
-    }
-  }
 
   const handleScheduleCall = async () => {
     if (!isAdmin || !user || !scheduleForm.googleMeetLink || !scheduleForm.scheduledAt || !scheduleForm.scheduledTime) {

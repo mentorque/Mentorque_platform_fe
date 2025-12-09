@@ -235,6 +235,8 @@ export default function AppliedJobs() {
       ));
 
       toast.success(`Status updated to "${newStatus}"`);
+      // Dispatch event to notify admin/mentor pages to refresh stats
+      window.dispatchEvent(new CustomEvent('jobUpdated'));
     } catch (error: any) {
       console.error('Error updating job status:', error);
       toast.error(error.message || 'Failed to update status');
@@ -268,6 +270,8 @@ export default function AppliedJobs() {
 
       setJobs(jobs.filter(job => job.id !== jobId));
       toast.success('Job deleted successfully');
+      // Dispatch event to notify admin/mentor pages to refresh stats
+      window.dispatchEvent(new CustomEvent('jobUpdated'));
     } catch (error) {
       console.error('Error deleting job:', error);
       toast.error('Failed to delete job');
@@ -325,6 +329,8 @@ export default function AppliedJobs() {
         url: ''
       });
       toast.success('Job added successfully');
+      // Dispatch event to notify admin/mentor pages to refresh stats
+      window.dispatchEvent(new CustomEvent('jobAdded'));
     } catch (error: any) {
       console.error('Error adding job:', error);
       toast.error(error.message || 'Failed to add job');
