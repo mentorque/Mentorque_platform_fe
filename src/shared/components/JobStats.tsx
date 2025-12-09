@@ -101,13 +101,19 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
   // Prepare jobs per day data
   const getJobsPerDayData = () => {
     const dateCounts: { [key: string]: number } = {}
+    
+    // Helper function to get local date string (YYYY-MM-DD)
+    const getLocalDateString = (date: Date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    
     filteredJobs.forEach((job) => {
       // Use local date to avoid timezone issues
       const jobDate = new Date(job.appliedDate)
-      const year = jobDate.getFullYear()
-      const month = String(jobDate.getMonth() + 1).padStart(2, '0')
-      const day = String(jobDate.getDate()).padStart(2, '0')
-      const date = `${year}-${month}-${day}`
+      const date = getLocalDateString(jobDate)
       dateCounts[date] = (dateCounts[date] || 0) + 1
     })
 
@@ -116,37 +122,55 @@ export default function JobStats({ jobs, goalPerDay = 3, timeFilter = 'all', onT
 
     const startDate = timeFilter === '7days' 
       ? (() => {
-          const date = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          // Go back 6 days to get 7 days total (including today)
+          const date = new Date()
+          date.setDate(date.getDate() - 6)
           date.setHours(0, 0, 0, 0)
           return date
         })()
       : timeFilter === '30days'
       ? (() => {
-          const date = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          // Go back 29 days to get 30 days total (including today)
+          const date = new Date()
+          date.setDate(date.getDate() - 29)
           date.setHours(0, 0, 0, 0)
           return date
         })()
       : new Date(dates[0])
+    
+    // Set endDate to today at end of day to ensure today is included
     const endDate = new Date()
-    endDate.setHours(23, 59, 59, 999) // Include today's jobs
+    endDate.setHours(23, 59, 59, 999)
 
     const result: { date: string; applications: number; displayDate: string }[] = []
     const currentDate = new Date(startDate)
+    currentDate.setHours(0, 0, 0, 0) // Ensure start is at beginning of day
     const maxDays = timeFilter === '7days' ? 7 : timeFilter === '30days' ? 30 : 30
 
+    // Loop through each day from startDate to today (inclusive)
     while (currentDate <= endDate && result.length < maxDays) {
       // Use local date to match the job date counting
-      const year = currentDate.getFullYear()
-      const month = String(currentDate.getMonth() + 1).padStart(2, '0')
-      const day = String(currentDate.getDate()).padStart(2, '0')
-      const dateStr = `${year}-${month}-${day}`
+      const dateStr = getLocalDateString(currentDate)
       const displayDate = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      
+      // Get count for this date (default to 0 if no jobs)
+      const count = dateCounts[dateStr] || 0
+      
       result.push({
         date: dateStr,
-        applications: dateCounts[dateStr] || 0,
+        applications: count,
         displayDate,
       })
+      
+      // Move to next day
       currentDate.setDate(currentDate.getDate() + 1)
+    }
+    
+    // Debug: Log to verify today is included
+    const todayStr = getLocalDateString(new Date())
+    const todayInResult = result.find(r => r.date === todayStr)
+    if (!todayInResult && timeFilter !== 'all') {
+      console.warn('Today not found in chart data:', todayStr, 'Available dates:', result.map(r => r.date))
     }
 
     return result
