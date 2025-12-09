@@ -374,15 +374,24 @@ export default function AppliedJobs() {
   const calculateStreak = () => {
     if (jobs.length === 0) return { currentStreak: 0, todayCount: 0, needToday: goalPerDay };
 
-    // Group jobs by date
+    // Helper function to get local date string (YYYY-MM-DD) - avoids timezone issues
+    const getLocalDateString = (date: Date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
+    // Group jobs by date using LOCAL dates
     const jobsByDate: { [key: string]: number } = {};
     jobs.forEach(job => {
-      const date = new Date(job.appliedDate).toDateString();
+      const jobDate = new Date(job.appliedDate);
+      const date = getLocalDateString(jobDate);
       jobsByDate[date] = (jobsByDate[date] || 0) + 1;
     });
 
-    // Get today's date
-    const today = new Date().toDateString();
+    // Get today's date using local date
+    const today = getLocalDateString(new Date());
     const todayCount = jobsByDate[today] || 0;
 
     // Calculate streak using user-defined goal
@@ -390,7 +399,7 @@ export default function AppliedJobs() {
     let currentDate = new Date();
     
     while (true) {
-      const dateStr = currentDate.toDateString();
+      const dateStr = getLocalDateString(currentDate);
       const count = jobsByDate[dateStr] || 0;
       
       if (count >= goalPerDay) {
@@ -419,34 +428,49 @@ export default function AppliedJobs() {
   const getJobsPerDayData = () => {
     if (jobs.length === 0) return [];
 
-    // Get all unique dates and count jobs per date
+    // Helper function to get local date string (YYYY-MM-DD) - avoids timezone issues
+    const getLocalDateString = (date: Date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
+    // Get all unique dates and count jobs per date using LOCAL dates
     const dateCounts: { [key: string]: number } = {};
     jobs.forEach(job => {
-      const date = new Date(job.appliedDate).toISOString().split('T')[0];
+      const jobDate = new Date(job.appliedDate);
+      const date = getLocalDateString(jobDate);
       dateCounts[date] = (dateCounts[date] || 0) + 1;
     });
 
     // Determine date range based on time period filter
     let startDate: Date;
     const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999); // Include today
     
     if (timePeriod === '7') {
       startDate = new Date();
-      startDate.setDate(startDate.getDate() - 7);
+      startDate.setDate(startDate.getDate() - 6); // 6 days ago = 7 days total including today
+      startDate.setHours(0, 0, 0, 0);
     } else if (timePeriod === '10') {
       startDate = new Date();
-      startDate.setDate(startDate.getDate() - 10);
+      startDate.setDate(startDate.getDate() - 9); // 9 days ago = 10 days total including today
+      startDate.setHours(0, 0, 0, 0);
     } else if (timePeriod === '30') {
       startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
+      startDate.setDate(startDate.getDate() - 29); // 29 days ago = 30 days total including today
+      startDate.setHours(0, 0, 0, 0);
     } else {
       // 'all' - use earliest date from jobs or last 30 days
       const dates = Object.keys(dateCounts).sort();
       if (dates.length > 0) {
         startDate = new Date(dates[0]);
+        startDate.setHours(0, 0, 0, 0);
       } else {
         startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);
+        startDate.setDate(startDate.getDate() - 29);
+        startDate.setHours(0, 0, 0, 0);
       }
     }
     
@@ -456,7 +480,7 @@ export default function AppliedJobs() {
     currentDate.setHours(0, 0, 0, 0);
     
     while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(currentDate);
       const displayDate = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       result.push({
         date: dateStr,
