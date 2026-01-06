@@ -83,6 +83,13 @@ export default function AdminUserDetail() {
     scheduledTime: '',
   })
   const [isScheduling, setIsScheduling] = useState(false)
+  const [showPastCallForm, setShowPastCallForm] = useState(false)
+  const [pastCallForm, setPastCallForm] = useState({
+    callNumber: 1,
+    scheduledAt: '',
+    scheduledTime: '09:00',
+  })
+  const [isAddingPastCall, setIsAddingPastCall] = useState(false)
   const [activeTab, setActiveTab] = useState<'progress' | 'jobs'>('progress')
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [password, setPassword] = useState('')
@@ -500,6 +507,51 @@ export default function AdminUserDetail() {
       toast.error(error.message || 'Failed to delete session')
     } finally {
       setIsDeletingSession(false)
+    }
+  }
+
+  const handleAddPastCall = async () => {
+    if (!isAdmin || !user || !pastCallForm.scheduledAt || !pastCallForm.scheduledTime) {
+      toast.error('Please fill in all fields')
+      return
+    }
+
+    setIsAddingPastCall(true)
+    try {
+      const scheduledDateTime = new Date(`${pastCallForm.scheduledAt}T${pastCallForm.scheduledTime}`)
+      
+      const res = await fetch(`${API_URL}/api/admin/users/${user.id}/add-past-call`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          callNumber: pastCallForm.callNumber,
+          scheduledAt: scheduledDateTime.toISOString(),
+        }),
+      })
+
+      if (res.ok) {
+        toast.success(`Past call ${pastCallForm.callNumber} added successfully!`)
+        setShowPastCallForm(false)
+        setPastCallForm({
+          callNumber: 1,
+          scheduledAt: '',
+          scheduledTime: '09:00',
+        })
+        await loadScheduledSessions()
+        // Trigger a reload of AdminUserStatus
+        window.dispatchEvent(new CustomEvent('userStatusUpdated'))
+      } else {
+        const error = await res.json()
+        toast.error(error.message || 'Failed to add past call')
+      }
+    } catch (error: any) {
+      console.error('Error adding past call:', error)
+      toast.error('Failed to add past call')
+    } finally {
+      setIsAddingPastCall(false)
     }
   }
 
@@ -921,11 +973,22 @@ export default function AdminUserDetail() {
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   Mentoring Sessions
                 </h2>
-                {scheduledSessions.length > 0 && (
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {scheduledSessions.length} session{scheduledSessions.length !== 1 ? 's' : ''}
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  {scheduledSessions.length > 0 && (
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      {scheduledSessions.length} session{scheduledSessions.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {isAdmin && (
+                    <button
+                      onClick={() => setShowPastCallForm(true)}
+                      className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      <span>Add Past Call</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {loadingSessions ? (
@@ -1359,6 +1422,114 @@ export default function AdminUserDetail() {
                       onClick={() => {
                         setShowPasswordModal(false)
                         setPassword('')
+                      }}
+                      className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors flex items-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Past Call Modal */}
+        {isAdmin && showPastCallForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-md">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                    <Calendar className="w-6 h-6 text-gray-600" />
+                    Add Past Call
+                  </h2>
+                  <button
+                    onClick={() => {
+                      setShowPastCallForm(false)
+                      setPastCallForm({
+                        callNumber: 1,
+                        scheduledAt: '',
+                        scheduledTime: '09:00',
+                      })
+                    }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Call Number
+                    </label>
+                    <select
+                      value={pastCallForm.callNumber}
+                      onChange={(e) => setPastCallForm({ ...pastCallForm, callNumber: parseInt(e.target.value) })}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    >
+                      {[1, 2, 3, 4, 5].map((num) => (
+                        <option key={num} value={num}>
+                          Call {num}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        <Calendar className="w-4 h-4 inline mr-1" />
+                        Date
+                      </label>
+                      <input
+                        type="date"
+                        value={pastCallForm.scheduledAt}
+                        onChange={(e) => setPastCallForm({ ...pastCallForm, scheduledAt: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Time
+                      </label>
+                      <input
+                        type="time"
+                        value={pastCallForm.scheduledTime}
+                        onChange={(e) => setPastCallForm({ ...pastCallForm, scheduledTime: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={handleAddPastCall}
+                      disabled={isAddingPastCall || !pastCallForm.scheduledAt || !pastCallForm.scheduledTime}
+                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                    >
+                      {isAddingPastCall ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Add Past Call
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowPastCallForm(false)
+                        setPastCallForm({
+                          callNumber: 1,
+                          scheduledAt: '',
+                          scheduledTime: '09:00',
+                        })
                       }}
                       className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg font-medium transition-colors flex items-center gap-2"
                     >
