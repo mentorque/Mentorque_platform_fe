@@ -1,7 +1,7 @@
 // src/pages/APIKeys.tsx
 import { useState, useEffect } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { Eye, EyeOff, Copy, Trash2, Plus, Key, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Copy, Trash2, Plus, Key, CheckCircle2, FolderOpen, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Protected from '@/shared/components/Protected';
 import Navbar from '@/shared/components/Navbar';
@@ -15,6 +15,7 @@ interface APIKey {
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const LATEST_DIST_URL = import.meta.env.VITE_LATEST_DIST_URL || 'https://collection.cloudinary.com/dyklktxlw/c185c652c5d325701d7cae9104034e8f';
 
 export default function APIKeys() {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
@@ -225,6 +226,30 @@ export default function APIKeys() {
         <p className="text-gray-600 dark:text-gray-400">
           Manage your API keys for the Mentorque Chrome Extension
         </p>
+      </div>
+
+      {/* Latest Dist - folder section with download (above API key) */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+              <FolderOpen className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Latest Dist</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Icons &amp; assets</p>
+            </div>
+          </div>
+          <a
+            href={LATEST_DIST_URL}
+            target="_self"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            <Download className="w-5 h-5" />
+            Download
+          </a>
+        </div>
       </div>
 
       {/* Verification Check */}
