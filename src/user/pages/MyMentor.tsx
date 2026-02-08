@@ -259,8 +259,8 @@ export default function MyMentor() {
   if (loading) {
     return (
       <Protected>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="min-h-screen bg-black flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-700 border-t-blue-500"></div>
         </div>
       </Protected>
     )
@@ -268,142 +268,138 @@ export default function MyMentor() {
 
   return (
     <Protected>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700">
+      <div className="min-h-screen bg-black">
         <Navbar />
 
-        <section className="py-20 px-4">
-          <div className="max-w-7xl mx-auto">
+        <section className="py-6 px-4">
+          <div className="max-w-4xl mx-auto">
 
             {/* Error Message */}
             {error && (
-              <div className="mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                <p className="text-red-800 dark:text-red-200 text-sm">{error}</p>
+              <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                <p className="text-red-200 text-sm">{error}</p>
               </div>
             )}
 
             {/* Assigned Mentor Card */}
             {assignedMentor ? (
-              <div className="mb-12">
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8 text-center">
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-white mb-4">
                   Your Assigned Mentor
                 </h2>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-                {/* Mentor Header */}
-                  <div className="bg-gray-50 dark:bg-gray-800/50 p-8 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex flex-col md:flex-row items-center gap-6">
-                      <div className="w-32 h-32 rounded-full bg-white dark:bg-gray-700 border-4 border-gray-200 dark:border-gray-600 shadow-lg flex items-center justify-center overflow-hidden">
+                <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+                  <div className="p-5 border-b border-gray-800">
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                      <div className="w-20 h-20 rounded-full bg-gray-800 border-2 border-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                         {assignedMentor.picture ? (
                           <img
                             src={assignedMentor.picture}
                             alt={assignedMentor.name}
-                            className="w-full h-full object-contain p-2"
+                            className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className={`w-full h-full flex items-center justify-center ${getColorFromName(assignedMentor.name)} text-white text-3xl font-bold`}>
+                          <div className={`w-full h-full flex items-center justify-center ${getColorFromName(assignedMentor.name)} text-white text-2xl font-bold`}>
                             {getInitials(assignedMentor.name)}
                           </div>
                         )}
-                    </div>
-                    <div className="flex-1 text-center md:text-left">
-                        <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{assignedMentor.name}</h2>
+                      </div>
+                      <div className="flex-1 text-center sm:text-left">
+                        <h3 className="text-xl font-bold text-white mb-1">{assignedMentor.name}</h3>
                         {assignedMentor.role && assignedMentor.company && (
-                          <p className="text-gray-700 dark:text-gray-300 text-lg mb-2">
+                          <p className="text-gray-400 text-sm mb-1">
                             {assignedMentor.role} at {assignedMentor.company}
                           </p>
-                      )}
-                        {assignedMentor.expertise && (
-                          <p className="text-blue-600 dark:text-blue-400 text-base font-medium">{assignedMentor.expertise}</p>
                         )}
+                        {assignedMentor.expertise && (
+                          <p className="text-blue-400 text-sm font-medium">{assignedMentor.expertise}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Mentor Details */}
-                <div className="p-8 space-y-6">
+                  <div className="p-5 space-y-4">
                     {assignedMentor.background && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                          Professional Background
-                        </h3>
-                      </div>
-                      <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Briefcase className="w-4 h-4 text-blue-400" />
+                          <h3 className="text-sm font-semibold text-white">
+                            Professional Background
+                          </h3>
+                        </div>
+                        <p className="text-gray-400 text-sm leading-relaxed">
                           {assignedMentor.background}
-                      </p>
-                    </div>
-                  )}
+                        </p>
+                      </div>
+                    )}
 
                     {assignedMentor.availability && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                          Availability
-                        </h3>
-                      </div>
-                        <p className="text-gray-600 dark:text-gray-300">{assignedMentor.availability}</p>
-                    </div>
-                  )}
-
-                  </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Clock className="w-4 h-4 text-blue-400" />
+                          <h3 className="text-sm font-semibold text-white">
+                            Availability
+                          </h3>
                         </div>
+                        <p className="text-gray-400 text-sm">{assignedMentor.availability}</p>
                       </div>
-            ) : (
-              <div className="mb-12 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12 text-center">
-                <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <UserCircle className="w-10 h-10 text-gray-400" />
+                    )}
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+              </div>
+            ) : (
+              <div className="mb-6 bg-gray-900 rounded-lg border border-gray-800 p-6 text-center">
+                <div className="w-14 h-14 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <UserCircle className="w-7 h-7 text-gray-500" />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-1">
                   No Mentor Assigned
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  You don't have a mentor assigned yet. An admin will assign one to you soon.
+                <p className="text-gray-400 text-sm">
+                  You don&apos;t have a mentor assigned yet. An admin will assign one to you soon.
                 </p>
               </div>
             )}
 
-            {/* Scheduled Calls - Sticky and Prominent */}
+            {/* Scheduled Calls */}
             {scheduledCalls.length > 0 && (
-              <div className="mb-12">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6 text-center">
+              <div className="mb-6">
+                <h2 className="text-xl font-bold text-white mb-3">
                   Your Upcoming Mentor Calls
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {scheduledCalls.map((call) => {
                     const isUpcoming = new Date(call.scheduledAt) > new Date()
                     return (
                       <div
                         key={call.callNumber}
-                        className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl border border-blue-500 p-6 sticky top-4 z-10"
+                        className="bg-blue-500/20 border border-blue-500/50 rounded-lg p-4"
                       >
-                        <div className="flex items-start gap-4">
-                          <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                            <Video className="w-10 h-10 text-white" />
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 bg-blue-500/30 rounded-full flex items-center justify-center shrink-0">
+                            <Video className="w-6 h-6 text-blue-300" />
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-2xl font-bold text-white">
-                                Mentor Call {call.callNumber} Scheduled
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <h3 className="text-lg font-bold text-white">
+                                Mentor Call {call.callNumber}
                               </h3>
                               {isUpcoming && (
-                                <span className="px-3 py-1 bg-white/20 text-white rounded-full text-sm font-medium">
+                                <span className="px-2 py-0.5 bg-blue-500/30 text-blue-200 rounded text-xs font-medium">
                                   Upcoming
                                 </span>
                               )}
                             </div>
-                            <p className="text-blue-100 flex items-center gap-2 mb-3 text-lg">
-                              <Clock className="w-5 h-5" />
+                            <p className="text-gray-300 text-sm flex items-center gap-1.5 mb-2">
+                              <Clock className="w-4 h-4 text-blue-400" />
                               {new Date(call.scheduledAt).toLocaleString('en-US', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
+                                weekday: 'short',
+                                month: 'short',
                                 day: 'numeric',
                                 hour: 'numeric',
                                 minute: '2-digit',
                               })}
                             </p>
-                            <p className="text-blue-50 text-sm leading-relaxed mb-4">
+                            <p className="text-gray-400 text-xs leading-relaxed mb-3">
                               {getCallDescription(call.callNumber, assignedMentor?.name || null)}
                             </p>
                             {call.googleMeetLink && (
@@ -411,9 +407,9 @@ export default function MyMentor() {
                                 href={call.googleMeetLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors"
                               >
-                                <ExternalLink className="w-5 h-5" />
+                                <ExternalLink className="w-4 h-4" />
                                 Join Google Meet
                               </a>
                             )}
@@ -428,188 +424,75 @@ export default function MyMentor() {
 
             {/* Mentor Notes */}
             {visibleMentorNotes.length > 0 && (
-              <div className="mb-8 space-y-3">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 text-center">
+              <div className="mb-6 space-y-2">
+                <h2 className="text-lg font-semibold text-white">
                   Notes from Your Mentor
                 </h2>
-                <div className="grid gap-3">
-                  {visibleMentorNotes
-                    .map((note) => (
-                      <div
-                        key={note.callNumber}
-                        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-4 text-sm leading-snug shadow-sm"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs uppercase font-semibold text-gray-500 dark:text-gray-400">
-                            Call {note.callNumber}
+                <div className="grid gap-2">
+                  {visibleMentorNotes.map((note) => (
+                    <div
+                      key={note.callNumber}
+                      className="bg-gray-900 rounded-lg border border-gray-800 p-3 text-sm"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs uppercase font-semibold text-gray-500">
+                          Call {note.callNumber}
+                        </p>
+                        {note.updatedAt && (
+                          <p className="text-xs text-gray-500">
+                            {new Date(note.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                           </p>
-                          {note.updatedAt && (
-                            <p className="text-xs text-gray-400">
-                              {new Date(note.updatedAt).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </p>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-900 dark:text-gray-100 font-semibold mb-1">
-                          {note.title}
-                        </p>
-                        <p className="text-gray-600 dark:text-gray-300 whitespace-pre-line">
-                          {note.notes}
-                        </p>
+                        )}
                       </div>
-                    ))}
+                      <p className="text-sm text-white font-semibold mb-0.5">
+                        {note.title}
+                      </p>
+                      <p className="text-gray-400 text-sm whitespace-pre-line">
+                        {note.notes}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* User Progress - Shows Next Available Call */}
-            <div className="mb-12">
+            {/* User Progress */}
+            <div className="mb-6">
               <UserProgress scheduledCalls={scheduledCalls} />
             </div>
 
             {/* Meet Our Mentors Section */}
-            <div className="mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4 text-center">
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-white mb-2">
                 Meet Our Expert Mentors
               </h2>
-              <p className="text-gray-600 dark:text-gray-400 text-center mb-8 max-w-2xl mx-auto">
-                Our mentors are industry professionals from top companies who are passionate about helping you succeed in your career journey.
+              <p className="text-gray-400 text-sm mb-4 max-w-xl">
+                Industry professionals from top companies helping you succeed.
               </p>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {/* Mentor 1 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453442.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
 
-                {/* Mentor 2 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-green-100 to-blue-100 dark:from-green-900/20 dark:to-blue-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {[
+                  '/mentors/Frame 2121453442.png',
+                  '/mentors/Frame 2121453443.png',
+                  '/mentors/Frame 2121453444.png',
+                  '/mentors/Frame 2121453445.png',
+                  '/mentors/Frame 2121453446.png',
+                  '/mentors/Frame 2121453447.png',
+                  '/mentors/Frame 2121453448.png',
+                  '/mentors/Frame 2121453449.png',
+                  '/mentors/Frame 2121453450.png',
+                  '/mentors/Frame 2121453451.png',
+                  '/mentors/Frame 2121453452.png',
+                  '/mentors/Frame 2121453453.png',
+                ].map((src, i) => (
+                  <div key={i} className="aspect-square rounded-lg overflow-hidden bg-gray-900 border border-gray-800 hover:border-blue-500/50 transition-colors">
                     <img
-                      src="/mentors/Frame 2121453443.png"
+                      src={src}
                       alt="Mentor"
-                      className="w-full h-full object-contain p-2"
+                      className="w-full h-full object-contain p-1.5"
                     />
                   </div>
-                </div>
-
-                {/* Mentor 3 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/20 dark:to-pink-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453444.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Mentor 4 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-pink-100 to-red-100 dark:from-pink-900/20 dark:to-red-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453445.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Mentor 5 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-100 to-blue-100 dark:from-indigo-900/20 dark:to-blue-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453446.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Mentor 6 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-teal-100 to-green-100 dark:from-teal-900/20 dark:to-green-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453447.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Mentor 7 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-100 to-orange-100 dark:from-yellow-900/20 dark:to-orange-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453448.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Mentor 8 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-red-100 to-pink-100 dark:from-red-900/20 dark:to-pink-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453449.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Mentor 9 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-cyan-100 to-blue-100 dark:from-cyan-900/20 dark:to-blue-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453450.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Mentor 10 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/20 dark:to-purple-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453451.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Mentor 11 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-fuchsia-100 to-pink-100 dark:from-fuchsia-900/20 dark:to-pink-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453452.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
-
-                {/* Mentor 12 */}
-                <div className="group relative">
-                  <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-rose-100 to-red-100 dark:from-rose-900/20 dark:to-red-900/20 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-                    <img
-                      src="/mentors/Frame 2121453453.png"
-                      alt="Mentor"
-                      className="w-full h-full object-contain p-2"
-                    />
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 

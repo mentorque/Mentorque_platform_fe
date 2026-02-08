@@ -15,7 +15,7 @@ interface APIKey {
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const LATEST_DIST_URL = import.meta.env.VITE_LATEST_DIST_URL || 'https://collection.cloudinary.com/dyklktxlw/c185c652c5d325701d7cae9104034e8f';
+const DOWNLOAD_FILENAME = 'dist_drndju.zip';
 
 export default function APIKeys() {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
@@ -25,6 +25,7 @@ export default function APIKeys() {
   const [loading, setLoading] = useState(true);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
+  const [downloadingZip, setDownloadingZip] = useState(false);
   const auth = getAuth();
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export default function APIKeys() {
       }
 
       const token = await currentUser.getIdToken();
-      console.log('Fetching API keys for user:', currentUser.email);
+      console.log('Fetching app passwords for user:', currentUser.email);
 
       const response = await fetch(`${API_URL}/api/keys`, {
         headers: {
@@ -88,16 +89,16 @@ export default function APIKeys() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Failed to fetch API keys:', errorData);
-        throw new Error(errorData.error || 'Failed to fetch API keys');
+        console.error('Failed to fetch app passwords:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch app passwords');
       }
 
       const data = await response.json();
-      console.log('API Keys fetched successfully:', data.keys?.length || 0, 'keys');
+      console.log('App passwords fetched successfully:', data.keys?.length || 0, 'passwords');
       setApiKeys(data.keys || []);
     } catch (error: any) {
-      console.error('Error fetching API keys:', error);
-      toast.error(error.message || 'Failed to load API keys');
+      console.error('Error fetching app passwords:', error);
+      toast.error(error.message || 'Failed to load app passwords');
     } finally {
       setLoading(false);
     }
@@ -128,13 +129,13 @@ export default function APIKeys() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to create API key');
+        throw new Error(error.error || 'Failed to create app password');
       }
       
       const data = await response.json();
       if (data.key) {
         setNewKeyName('');
-        toast.success('API key created successfully!');
+        toast.success('App password created successfully!');
         
         // Auto-copy to clipboard
         navigator.clipboard.writeText(data.key.key);
@@ -151,15 +152,15 @@ export default function APIKeys() {
         setTimeout(() => setCopiedKeyId(null), 3000);
       }
     } catch (error: any) {
-      console.error('Error creating API key:', error);
-      toast.error(error.message || 'Failed to create API key');
+      console.error('Error creating app password:', error);
+      toast.error(error.message || 'Failed to create app password');
     } finally {
       setIsCreating(false);
     }
   };
 
   const deleteAPIKey = async (keyId: string) => {
-    if (!confirm('Are you sure you want to delete this API key? This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete this app password? This action cannot be undone.')) {
       return;
     }
 
@@ -178,16 +179,16 @@ export default function APIKeys() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete API key');
+        throw new Error('Failed to delete app password');
       }
       
-      toast.success('API key deleted successfully');
+      toast.success('App password deleted successfully');
       
       // Refetch all keys from database to keep in sync
       await fetchAPIKeys();
     } catch (error) {
-      console.error('Error deleting API key:', error);
-      toast.error('Failed to delete API key');
+      console.error('Error deleting app password:', error);
+      toast.error('Failed to delete app password');
     }
   };
 
@@ -207,11 +208,47 @@ export default function APIKeys() {
     return `${key.substring(0, 8)}${'•'.repeat(32)}${key.substring(key.length - 4)}`;
   };
 
+  const handleDownloadZip = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      toast.error('Please sign in to download');
+      return;
+    }
+    setDownloadingZip(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const res = await fetch(`${API_URL}/api/users/me/download-dist`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Download failed');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = DOWNLOAD_FILENAME;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Download started');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Download failed';
+      toast.error(message);
+    } finally {
+      setDownloadingZip(false);
+    }
+  };
+
   if (loading) {
     return (
       <Protected>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="min-h-screen bg-black flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-700 border-t-blue-500"></div>
         </div>
       </Protected>
     );
@@ -220,216 +257,227 @@ export default function APIKeys() {
   return (
     <Protected>
       <Navbar />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">API Keys</h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Manage your API keys for the Mentorque Chrome Extension
-        </p>
-      </div>
-
-      {/* Latest Dist - folder section with download (above API key) */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-              <FolderOpen className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Latest Dist</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Icons &amp; assets</p>
-            </div>
-          </div>
-          <a
-            href={LATEST_DIST_URL}
-            target="_self"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <Download className="w-5 h-5" />
-            Download
-          </a>
-        </div>
-      </div>
-
-      {/* Verification Check */}
-      {isVerified === false && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6 mb-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-              <svg
-                className="w-6 h-6 text-yellow-600 dark:text-yellow-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-yellow-900 dark:text-yellow-100 mb-2">
-                Admin Approval Needed
-              </h3>
-              <p className="text-yellow-800 dark:text-yellow-200">
-                Your account is pending admin approval. Please contact the administrator and come back once you have been approved to create API keys.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create New Key Section */}
-      {isVerified !== false && (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-          <Plus className="w-5 h-5" />
-          Create New API Key
-        </h2>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            placeholder="Key name (e.g., Chrome Extension)"
-            value={newKeyName}
-            onChange={(e) => setNewKeyName(e.target.value)}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-            onKeyPress={(e) => e.key === 'Enter' && createAPIKey()}
-            maxLength={50}
-          />
-          <button
-            onClick={createAPIKey}
-              disabled={isCreating || !newKeyName.trim() || isVerified === false}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
-          >
-            {isCreating ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Creating...
-              </>
-            ) : (
-              <>
-                <Key className="w-4 h-4" />
-                Create Key
-              </>
-            )}
-          </button>
-        </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-          💡 Name your key to help identify where it's being used (max 5 keys)
-        </p>
-      </div>
-      )}
-
-      {/* API Keys List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold">Your API Keys</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {apiKeys.length} {apiKeys.length === 1 ? 'key' : 'keys'} active
-          </p>
-        </div>
-
-        {apiKeys.length === 0 ? (
-          <div className="p-12 text-center">
-            <Key className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-            <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
-              No API Keys Yet
-            </h3>
-            <p className="text-gray-500 dark:text-gray-500">
-              Create your first API key to use with the Chrome Extension
+      <div className="min-h-screen bg-black">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2 text-white">App Passwords</h1>
+            <p className="text-gray-400">
+              Manage your app passwords for the Mentorque Chrome Extension
             </p>
           </div>
-        ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {apiKeys.map((key) => (
-              <div key={key.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-semibold text-lg">{key.name}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Created {new Date(key.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                      {key.lastUsed && ` • Last used ${new Date(key.lastUsed).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric'
-                      })}`}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => deleteAPIKey(key.id)}
-                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    title="Delete API Key"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 font-mono text-sm bg-gray-100 dark:bg-gray-900 px-4 py-2 rounded-lg overflow-x-auto">
-                    {showKey[key.id] ? key.key : maskKey(key.key)}
-                  </div>
-                  <button
-                    onClick={() => toggleShowKey(key.id)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                    title={showKey[key.id] ? 'Hide key' : 'Show key'}
-                  >
-                    {showKey[key.id] ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => copyToClipboard(key.key, key.id)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      copiedKeyId === key.id
-                        ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-600'
-                    }`}
-                    title="Copy to clipboard"
-                  >
-                    {copiedKeyId === key.id ? (
-                      <CheckCircle2 className="w-5 h-5" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
 
-                {showKey[key.id] && (
-                  <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      ⚠️ <strong>Warning:</strong> Keep this key secure! It provides access to your account.
-                    </p>
-                  </div>
-                )}
+          {/* Latest Dist - AI extension zip download */}
+          <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 mb-6">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                  <FolderOpen className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Latest AI Extension</h2>
+                  <p className="text-sm text-gray-400">Click the button to download our latest AI extension build.</p>
+                </div>
               </div>
-            ))}
+              <button
+                type="button"
+                onClick={handleDownloadZip}
+                disabled={downloadingZip}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+              >
+                {downloadingZip ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5" />
+                    Download zip
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Instructions Section */}
-      <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-          <Key className="w-5 h-5" />
-          How to use your API key
-        </h3>
-        <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800 dark:text-blue-200">
-          <li>Install the Mentorque Chrome Extension from the Chrome Web Store</li>
-          <li>Click on the extension icon in your browser</li>
-          <li>Select "Login with API Key"</li>
-          <li>Copy and paste your API key from above</li>
-          <li>Start using the extension on LinkedIn job pages!</li>
-        </ol>
-      </div>
+          {/* Verification Check */}
+          {isVerified === false && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-6 mb-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg
+                    className="w-6 h-6 text-yellow-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-yellow-200 mb-2">
+                    Admin Approval Needed
+                  </h3>
+                  <p className="text-yellow-200/90">
+                    Your account is pending admin approval. Please contact the administrator and come back once you have been approved to create app passwords.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Create New App Password Section */}
+          {isVerified !== false && (
+            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 mb-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
+                <Plus className="w-5 h-5 text-blue-400" />
+                Create New App Password
+              </h2>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  placeholder="App password name (e.g., Chrome Extension)"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 bg-white text-black focus:ring-blue-400"
+                  onKeyPress={(e) => e.key === 'Enter' && createAPIKey()}
+                  maxLength={50}
+                />
+                <button
+                  onClick={createAPIKey}
+                  disabled={isCreating || !newKeyName.trim() || !isVerified}
+                  className="px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 disabled:cursor-not-allowed text-white font-medium rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  {isCreating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-4 h-4" />
+                      Create Password
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="text-sm text-gray-400 mt-2">
+                💡 Name your app password to help identify where it&apos;s being used (max 5)
+              </p>
+            </div>
+          )}
+
+          {/* App Passwords List */}
+          <div className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
+            <div className="p-6 border-b border-gray-800">
+              <h2 className="text-xl font-semibold text-white">Your App Passwords</h2>
+              <p className="text-sm text-gray-400 mt-1">
+                {apiKeys.length} {apiKeys.length === 1 ? 'password' : 'passwords'} active
+              </p>
+            </div>
+
+            {apiKeys.length === 0 ? (
+              <div className="p-12 text-center">
+                <Key className="w-16 h-16 mx-auto text-gray-600 mb-4" />
+                <h3 className="text-lg font-medium text-gray-400 mb-2">
+                  No App Passwords Yet
+                </h3>
+                <p className="text-gray-500">
+                  Create your first app password to use with the Chrome Extension
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-800">
+                {apiKeys.map((key) => (
+                  <div key={key.id} className="p-6 hover:bg-gray-800/50 transition-colors">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="font-semibold text-lg text-white">{key.name}</h3>
+                        <p className="text-sm text-gray-400">
+                          Created {new Date(key.createdAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                          {key.lastUsed && ` • Last used ${new Date(key.lastUsed).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric'
+                          })}`}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => deleteAPIKey(key.id)}
+                        className="text-red-400 hover:text-red-300 p-2 rounded-lg hover:bg-red-500/10 transition-colors"
+                        title="Delete App Password"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 font-mono text-sm bg-black/40 border border-gray-700 text-gray-200 px-4 py-2 rounded-lg overflow-x-auto">
+                        {showKey[key.id] ? key.key : maskKey(key.key)}
+                      </div>
+                      <button
+                        onClick={() => toggleShowKey(key.id)}
+                        className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                        title={showKey[key.id] ? 'Hide password' : 'Show password'}
+                      >
+                        {showKey[key.id] ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => copyToClipboard(key.key, key.id)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          copiedKeyId === key.id
+                            ? 'text-green-400 bg-green-500/10'
+                            : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                        }`}
+                        title="Copy to clipboard"
+                      >
+                        {copiedKeyId === key.id ? (
+                          <CheckCircle2 className="w-5 h-5" />
+                        ) : (
+                          <Copy className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+
+                    {showKey[key.id] && (
+                      <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                        <p className="text-sm text-yellow-200">
+                          ⚠️ <strong>Warning:</strong> Keep this password secure! It provides access to your account.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Instructions Section */}
+          <div className="mt-6 bg-gray-900 border border-blue-500/30 rounded-lg p-6">
+            <h3 className="font-semibold text-white mb-2 flex items-center gap-2">
+              <Key className="w-5 h-5 text-blue-400" />
+              How to use your app password
+            </h3>
+            <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+              <li>Install the Mentorque Chrome Extension from the Chrome Web Store</li>
+              <li>Click on the extension icon in your browser</li>
+              <li>Select &quot;Login with App Password&quot;</li>
+              <li>Copy and paste your app password from above</li>
+              <li>Start using the extension on LinkedIn job pages!</li>
+            </ol>
+          </div>
+        </div>
       </div>
     </Protected>
   );

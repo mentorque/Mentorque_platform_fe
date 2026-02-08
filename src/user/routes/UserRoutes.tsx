@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import SignIn from '../pages/SignIn'
 import SignUp from '../pages/SignUp'
 import Dashboard from '../pages/Dashboard'
@@ -21,7 +21,8 @@ export default function UserRoutes() {
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/progress" element={<Progress />} />
       <Route path="/resume-review" element={<ResumeReview />} />
-      <Route path="/api-keys" element={<APIKeys />} />
+      <Route path="/app-passwords" element={<APIKeys />} />
+      <Route path="/api-keys" element={<Navigate to="/app-passwords" replace />} />
       <Route path="/applied-jobs" element={<AppliedJobs />} />
       <Route path="/resume-rebuild" element={<ResumeRebuild />} />
       <Route path="/portfolio-templates" element={<PortfolioTemplates />} />

@@ -38,7 +38,8 @@ export default function Navbar() {
               <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="/progress">Progress</a>
               <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="/applied-jobs">Applied Jobs</a>
               <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="/my-mentor">My Mentor</a>
-              <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="/api-keys">API Keys</a>
+              <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="/app-passwords">App Passwords</a>
+              <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="https://tools.mentorquedu.com/menu" target="_blank" rel="noopener noreferrer">Resume Compiler</a>
             </nav>
 
             {/* Desktop CTA Button and Controls */}
@@ -117,10 +118,19 @@ export default function Navbar() {
                   </a>
                   <a 
                     className="text-gray-800 dark:text-gray-200 font-medium hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 py-3 px-4 rounded-lg hover:bg-white/10 dark:hover:bg-gray-800/20 text-base" 
-                    href="/api-keys"
+                    href="/app-passwords"
                     onClick={closeMobileMenu}
                   >
-                    API Keys
+                    App Passwords
+                  </a>
+                  <a 
+                    className="text-gray-800 dark:text-gray-200 font-medium hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 py-3 px-4 rounded-lg hover:bg-white/10 dark:hover:bg-gray-800/20 text-base" 
+                    href="https://tools.mentorquedu.com/menu"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={closeMobileMenu}
+                  >
+                    Resume Compiler
                   </a>
                 </div>
 

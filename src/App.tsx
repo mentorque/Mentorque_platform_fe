@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 
 // User pages
@@ -111,7 +111,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/progress" element={<Progress />} />
           <Route path="/resume-review" element={<ResumeReview />} />
-          <Route path="/api-keys" element={<APIKeys />} />
+          <Route path="/app-passwords" element={<APIKeys />} />
+          <Route path="/api-keys" element={<Navigate to="/app-passwords" replace />} />
           <Route path="/applied-jobs" element={<AppliedJobs />} />
           <Route path="/resume-rebuild" element={<ResumeRebuild />} />
           <Route path="/portfolio-templates" element={<PortfolioTemplates />} />
