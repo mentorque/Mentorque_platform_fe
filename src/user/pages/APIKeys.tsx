@@ -15,7 +15,6 @@ interface APIKey {
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const DOWNLOAD_FILENAME = 'dist_drndju.zip';
 
 export default function APIKeys() {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
@@ -25,7 +24,6 @@ export default function APIKeys() {
   const [loading, setLoading] = useState(true);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
-  const [downloadingZip, setDownloadingZip] = useState(false);
   const auth = getAuth();
 
   useEffect(() => {
@@ -208,40 +206,22 @@ export default function APIKeys() {
     return `${key.substring(0, 8)}${'•'.repeat(32)}${key.substring(key.length - 4)}`;
   };
 
-  const handleDownloadZip = async () => {
+  const handleDownloadZip = () => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       toast.error('Please sign in to download');
       return;
     }
-    setDownloadingZip(true);
-    try {
-      const token = await currentUser.getIdToken();
-      const res = await fetch(`${API_URL}/api/users/me/download-dist`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Download failed');
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = DOWNLOAD_FILENAME;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('Download started');
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Download failed';
-      toast.error(message);
-    } finally {
-      setDownloadingZip(false);
-    }
+    // File in public folder - direct download, no backend/CDN
+    const filename = 'dist_dgvwmd.zip';
+    const a = document.createElement('a');
+    a.href = `/${filename}`;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast.success('Download started');
   };
 
   if (loading) {
@@ -281,20 +261,10 @@ export default function APIKeys() {
               <button
                 type="button"
                 onClick={handleDownloadZip}
-                disabled={downloadingZip}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
               >
-                {downloadingZip ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-5 h-5" />
-                    Download zip
-                  </>
-                )}
+                <Download className="w-5 h-5" />
+                Download zip
               </button>
             </div>
           </div>
