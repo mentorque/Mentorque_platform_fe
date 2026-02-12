@@ -15,6 +15,7 @@ import CheatSheetPrep from '@/user/pages/CheatSheetPrep'
 import APIKeys from '@/user/pages/APIKeys'
 import AppliedJobs from '@/user/pages/AppliedJobs'
 import MyMentor from '@/user/pages/MyMentor'
+import Demo from '@/user/pages/Demo'
 
 // Admin pages
 import AdminLogin from '@/admin/pages/AdminLogin'
@@ -120,6 +121,7 @@ function App() {
           <Route path="/cheat-sheet-prep" element={<CheatSheetPrep />} />
           <Route path="/mock-interviews" element={<MockInterview />} />
           <Route path="/my-mentor" element={<MyMentor />} />
+          <Route path="/demo" element={<Demo />} />
           
           {/* Default routes */}
           <Route path="/" element={<Dashboard />} />

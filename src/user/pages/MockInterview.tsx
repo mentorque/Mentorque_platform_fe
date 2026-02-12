@@ -1,10 +1,11 @@
-import { MessageSquare, Users, FileText, Star, CheckCircle, Clock, Target, Zap, Award, Calendar, BookOpen } from 'lucide-react';
+import { MessageSquare, Users, FileText, Star, CheckCircle, Clock, Target, Zap, Award, Calendar, BookOpen, ExternalLink, Code, Briefcase, TrendingUp } from 'lucide-react';
 import { CompletionBadge } from '@/shared/ui/completion-badge';
 import Navbar from '@/shared/components/Navbar';
 import Protected from '@/shared/components/Protected';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import WhatsAppCTA from '@/shared/components/WhatsAppCTA';
 import MockInterviewWhatsAppCTA from '@/shared/components/MockInterviewWhatsAppCTA';
+import EarbudShowcase from '@/components/ui/spatial-product-showcase';
 
 const MockInterview = () => {
   const { weeks } = useUserProgress();
@@ -176,6 +177,69 @@ const MockInterview = () => {
                   <span>Real Interview Simulation</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tools & Resources Section */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="mb-16">
+            <EarbudShowcase />
+          </div>
+          
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 mb-16">
+            <h2 className="text-2xl font-bold text-white mb-6 text-center">Essential Tools & Resources</h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              <a
+                href="https://tools.mentorquedu.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg p-6 border border-white/20 transition-all group"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <Code className="w-6 h-6 text-white" />
+                  <h3 className="text-lg font-semibold text-white">Resume Compiler</h3>
+                </div>
+                <p className="text-blue-100 text-sm mb-3">Build and optimize your resume with AI-powered tools</p>
+                <div className="flex items-center gap-2 text-blue-200 group-hover:text-white transition-colors">
+                  <span className="text-sm font-medium">Visit tools.mentorquedu.com</span>
+                  <ExternalLink className="w-4 h-4" />
+                </div>
+              </a>
+              
+              <a
+                href="https://www.linkedin.com/jobs/collections/recommended/?currentJobId=4368225796&discover=recommended&discoveryOrigin=PUBLIC_COMMS"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg p-6 border border-white/20 transition-all group"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <Briefcase className="w-6 h-6 text-white" />
+                  <h3 className="text-lg font-semibold text-white">LinkedIn Jobs</h3>
+                </div>
+                <p className="text-blue-100 text-sm mb-3">Discover recommended job opportunities on LinkedIn</p>
+                <div className="flex items-center gap-2 text-blue-200 group-hover:text-white transition-colors">
+                  <span className="text-sm font-medium">View jobs</span>
+                  <ExternalLink className="w-4 h-4" />
+                </div>
+              </a>
+              
+              <a
+                href="https://mentorque-cheatsheet.vercel.app/Candidate-diagnosis/raajit"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-lg p-6 border border-white/20 transition-all group"
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <TrendingUp className="w-6 h-6 text-white" />
+                  <h3 className="text-lg font-semibold text-white">Interview Diagnostics</h3>
+                </div>
+                <p className="text-blue-100 text-sm mb-3">Get comprehensive interview readiness assessment</p>
+                <div className="flex items-center gap-2 text-blue-200 group-hover:text-white transition-colors">
+                  <span className="text-sm font-medium">View diagnostics</span>
+                  <ExternalLink className="w-4 h-4" />
+                </div>
+              </a>
             </div>
           </div>
         </div>
