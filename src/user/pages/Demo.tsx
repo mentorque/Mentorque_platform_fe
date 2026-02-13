@@ -25,6 +25,15 @@ interface PhaseFeature {
   link?: string;
 }
 
+interface MockTimelineItem {
+  label: string;
+  week: number;
+  day: number;
+  duration: string;
+  description: string;
+  value: number; // 0-100 for progress bar
+}
+
 interface PhaseData {
   id: PhaseId;
   label: string;
@@ -39,6 +48,7 @@ interface PhaseData {
   };
   features: PhaseFeature[];
   milestones: string[];
+  mockTimeline?: MockTimelineItem[];
 }
 
 const PHASE_DATA: Record<PhaseId, PhaseData> = {
@@ -114,24 +124,22 @@ const PHASE_DATA: Record<PhaseId, PhaseData> = {
   phase4: {
     id: 'phase4',
     label: 'Phase 4',
-    title: 'Structured Mock Interviews',
+    title: 'Mock Interview Timeline',
     duration: '',
-    description: 'Structured mock interview rounds with continuous refinement to build confidence and improve performance.',
+    description: 'Four weeks of structured mocks to build confidence.',
     image: '/interview-icon.svg',
     colors: {
       gradient: 'from-purple-600 to-pink-900',
       glow: 'bg-purple-500',
       ring: 'border-l-purple-500/50',
     },
-    features: [
-      { label: 'Structured Mock Rounds', value: 100, icon: Video },
-      { label: 'Continuous Refinement', value: 100, icon: TrendingUp },
-    ],
-    milestones: [
-      '4–5 structured mock interviews',
-      'Real-time feedback',
-      'Performance tracking',
-      'Continuous improvement',
+    features: [],
+    milestones: [],
+    mockTimeline: [
+      { label: 'Technical walkthrough', week: 2, day: 1, duration: '45 min', description: 'Explain projects clearly.', value: 25 },
+      { label: 'Problem-solving & articulation', week: 2, day: 5, duration: '50 min', description: 'Clarify, propose, discuss trade-offs.', value: 50 },
+      { label: 'Follow-up + behavioral', week: 3, day: 3, duration: '45 min', description: 'Resume follow-up + behavioral Qs.', value: 75 },
+      { label: 'Full simulation', week: 4, day: 2, duration: '60 min', description: 'Intro → resume → problem-solving → behavioral.', value: 100 },
     ],
   },
 };
@@ -272,49 +280,78 @@ const PhaseDetails = ({ data, isLeft }: { data: PhaseData; isLeft: boolean }) =>
         {data.description}
       </motion.p>
 
-      <motion.div variants={ANIMATIONS.item} className="w-full space-y-6 bg-zinc-900/40 p-6 rounded-2xl border border-white/5 backdrop-blur-sm">
-        {data.features.map((feature, idx) => (
-          <div key={feature.label} className="group">
-            {feature.link ? (
-              <a
-                href={feature.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-gradient-to-r ${data.colors.gradient} hover:scale-105 transition-all duration-200 group`}
-              >
-                <div className="flex items-center gap-3">
-                  <feature.icon size={24} className="text-white" />
-                  <div className="text-sm text-white/80 flex items-center gap-2">
-                    <span>Open tool</span>
-                    <ExternalLink size={14} className="group-hover:translate-x-1 transition-transform" />
-                  </div>
+      <motion.div variants={ANIMATIONS.item} className={`w-full bg-zinc-900/40 rounded-2xl border border-white/5 backdrop-blur-sm ${data.mockTimeline ? 'p-5 space-y-4' : 'p-6 space-y-6'}`}>
+        {data.mockTimeline ? (
+          <>
+            <p className="text-xs uppercase tracking-wider text-blue-400 mb-3 font-semibold">Mock Interview Timeline</p>
+            {data.mockTimeline.map((mock, idx) => (
+              <div key={mock.label} className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-zinc-300 font-medium truncate">
+                    Mock {idx + 1}: {mock.label}
+                  </span>
+                  <span className="text-sm font-medium text-zinc-400 shrink-0">Week {mock.week}</span>
                 </div>
-                <div className="text-lg font-semibold text-white">{feature.label}</div>
-              </a>
-            ) : (
-              <div className={`flex items-center gap-4 p-4 rounded-xl bg-zinc-800/50 ${isLeft ? 'justify-start' : 'justify-end'}`}>
-                <feature.icon size={24} className={data.colors.glow === 'bg-blue-500' ? 'text-blue-500' : 'text-purple-500'} />
-                <div className="text-lg font-semibold text-zinc-200">{feature.label}</div>
+                <p className="text-xs text-zinc-500">{mock.description}</p>
+                <div className="relative h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${mock.value}%` }}
+                    transition={{ duration: 0.8, delay: 0.2 + idx * 0.1 }}
+                    className={`absolute top-0 left-0 bottom-0 ${data.colors.glow} opacity-80 rounded-full`}
+                  />
+                </div>
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            {data.features.map((feature) => (
+              <div key={feature.label} className="group">
+                {feature.link ? (
+                  <a
+                    href={feature.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center justify-between gap-4 p-4 rounded-xl bg-gradient-to-r ${data.colors.gradient} hover:scale-105 transition-all duration-200 group`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <feature.icon size={24} className="text-white" />
+                      <div className="text-sm text-white/80 flex items-center gap-2">
+                        <span>Open tool</span>
+                        <ExternalLink size={14} className="group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+                    <div className="text-lg font-semibold text-white">{feature.label}</div>
+                  </a>
+                ) : (
+                  <div className={`flex items-center gap-4 p-4 rounded-xl bg-zinc-800/50 ${isLeft ? 'justify-start' : 'justify-end'}`}>
+                    <feature.icon size={24} className={data.colors.glow === 'bg-blue-500' ? 'text-blue-500' : 'text-purple-500'} />
+                    <div className="text-lg font-semibold text-zinc-200">{feature.label}</div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {data.milestones.length > 0 && (
+              <div className="pt-6 space-y-3">
+                <p className="text-sm uppercase tracking-wider text-zinc-400 mb-4 font-semibold">Key Milestones</p>
+                {data.milestones.map((milestone, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, x: isLeft ? -20 : 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.6 + idx * 0.1 }}
+                    className={`flex items-center gap-3 text-base text-zinc-200 ${isLeft ? 'justify-start' : 'justify-end'}`}
+                  >
+                    <div className={`w-2 h-2 rounded-full ${data.colors.glow} shrink-0`} />
+                    <span>{milestone}</span>
+                  </motion.div>
+                ))}
               </div>
             )}
-          </div>
-        ))}
-
-        <div className="pt-6 space-y-3">
-          <p className="text-sm uppercase tracking-wider text-zinc-400 mb-4 font-semibold">Key Milestones</p>
-          {data.milestones.map((milestone, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, x: isLeft ? -20 : 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6 + idx * 0.1 }}
-              className={`flex items-center gap-3 text-base text-zinc-200 ${isLeft ? 'justify-start' : 'justify-end'}`}
-            >
-              <div className={`w-2 h-2 rounded-full ${data.colors.glow} shrink-0`} />
-              <span>{milestone}</span>
-            </motion.div>
-          ))}
-        </div>
+          </>
+        )}
       </motion.div>
     </motion.div>
   );
