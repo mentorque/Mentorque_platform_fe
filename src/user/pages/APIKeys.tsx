@@ -254,7 +254,12 @@ export default function APIKeys() {
                   <FolderOpen className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-semibold text-white">Latest AI Extension</h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl font-semibold text-white">Latest AI Extension</h2>
+                    <span className="text-xs font-medium text-gray-500 bg-gray-800 px-2 py-0.5 rounded border border-gray-700">
+                      Last updated Feb 14 2026
+                    </span>
+                  </div>
                   <p className="text-sm text-gray-400">Click the button to download our latest AI extension build.</p>
                 </div>
               </div>
