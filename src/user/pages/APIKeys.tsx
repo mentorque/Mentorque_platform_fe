@@ -1,7 +1,7 @@
 // src/pages/APIKeys.tsx
 import { useState, useEffect } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { Eye, EyeOff, Copy, Trash2, Plus, Key, CheckCircle2, FolderOpen, Download } from 'lucide-react';
+import { Eye, EyeOff, Copy, Trash2, Plus, Key, CheckCircle2, FolderOpen, Download, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Protected from '@/shared/components/Protected';
 import Navbar from '@/shared/components/Navbar';
@@ -213,7 +213,7 @@ export default function APIKeys() {
       return;
     }
     // File in public folder - direct download, no backend/CDN
-    const filename = 'dist_dgvwmd.zip';
+    const filename = 'Feb-16-Extension.zip';
     const a = document.createElement('a');
     a.href = `/${filename}`;
     a.download = filename;
@@ -257,20 +257,31 @@ export default function APIKeys() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-xl font-semibold text-white">Latest AI Extension</h2>
                     <span className="text-xs font-medium text-gray-500 bg-gray-800 px-2 py-0.5 rounded border border-gray-700">
-                      Last updated Feb 14 2026
+                      Last updated Feb 16 2026
                     </span>
                   </div>
                   <p className="text-sm text-gray-400">Click the button to download our latest AI extension build.</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleDownloadZip}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
-              >
-                <Download className="w-5 h-5" />
-                Download zip
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleDownloadZip}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+                >
+                  <Download className="w-5 h-5" />
+                  Download zip
+                </button>
+                <a
+                  href="https://drive.google.com/file/d/1m6yZgXGXhbxzr9Pungh6TaLImz8dVj66/view?usp=sharing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium border border-gray-600"
+                >
+                  <BookOpen className="w-5 h-5" />
+                  Setup guide
+                </a>
+              </div>
             </div>
           </div>
 
