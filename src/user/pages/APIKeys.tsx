@@ -213,7 +213,7 @@ export default function APIKeys() {
       return;
     }
     // File in public folder - direct download, no backend/CDN
-    const filename = 'Feb-16-Extension.zip';
+    const filename = 'Mentorque-Extension-Feb-23.zip';
     const a = document.createElement('a');
     a.href = `/${filename}`;
     a.download = filename;
@@ -257,7 +257,7 @@ export default function APIKeys() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-xl font-semibold text-white">Latest AI Extension</h2>
                     <span className="text-xs font-medium text-gray-500 bg-gray-800 px-2 py-0.5 rounded border border-gray-700">
-                      Last updated Feb 16 2026
+                      Last updated Feb 23 2026
                     </span>
                   </div>
                   <p className="text-sm text-gray-400">Click the button to download our latest AI extension build.</p>
