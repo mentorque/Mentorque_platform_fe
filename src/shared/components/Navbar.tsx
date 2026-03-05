@@ -7,6 +7,48 @@ export default function Navbar() {
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false)
 
+  const handleAvailabilityClick = async () => {
+    try {
+      const { auth } = await import('@/lib/firebase')
+      const currentUser = auth.currentUser
+      if (!currentUser) {
+        console.error('No authenticated user found for availability SSO')
+        return
+      }
+
+      const firebaseToken = await currentUser.getIdToken()
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/sso-token`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${firebaseToken}`,
+        },
+      })
+
+      if (!res.ok) {
+        console.error('Failed to create SSO token', res.status, res.statusText)
+        return
+      }
+
+      const { token } = await res.json()
+      if (!token) {
+        console.error('SSO token missing in response')
+        return
+      }
+
+      const userId = currentUser.uid
+      const email = currentUser.email || ''
+      const trackerUrl = import.meta.env.VITE_AVAILABILITY_TRACKER_URL
+
+      window.open(
+        `${trackerUrl}/sso?token=${token}&role=USER&userId=${userId}&email=${encodeURIComponent(email)}`,
+        '_blank'
+      )
+    } catch (error) {
+      console.error('Error opening availability tracker:', error)
+    }
+  }
+
   const handleWhatsAppCallBack = () => {
     const number = "918486242054"; // no '+' for wa.me
     const msg = "Hi Team, I want to schedule a call back.";
@@ -40,6 +82,13 @@ export default function Navbar() {
               <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="/my-mentor">My Mentor</a>
               <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="/app-passwords">App Passwords</a>
               <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="https://tools.mentorquedu.com/menu" target="_blank" rel="noopener noreferrer">Resume Compiler</a>
+            <button
+              type="button"
+              className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm"
+              onClick={handleAvailabilityClick}
+            >
+              Availability
+            </button>
             </nav>
 
             {/* Desktop CTA Button and Controls */}
@@ -132,6 +181,16 @@ export default function Navbar() {
                   >
                     Resume Compiler
                   </a>
+                  <button
+                    type="button"
+                    className="text-left text-gray-800 dark:text-gray-200 font-medium hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 py-3 px-4 rounded-lg hover:bg-white/10 dark:hover:bg-gray-800/20 text-base"
+                    onClick={() => {
+                      closeMobileMenu()
+                      handleAvailabilityClick()
+                    }}
+                  >
+                    Availability
+                  </button>
                 </div>
 
                 {/* Mobile Action Buttons - Matching Desktop Layout */}

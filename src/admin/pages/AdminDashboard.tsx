@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Briefcase, UserCheck, ShieldCheck, Shield, Video, Search, Filter, X, Trash2 } from 'lucide-react'
+import { Users, Briefcase, UserCheck, ShieldCheck, Shield, Video, Search, Filter, X, Trash2, Calendar } from 'lucide-react'
 import Pagination from '@/shared/ui/Pagination'
 import { StatsCardSkeleton, UserCardSkeleton } from '@/shared/ui/Skeleton'
 import AdminNavbar from '@/admin/components/AdminNavbar'
@@ -477,91 +477,114 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-4 mb-6">
-        {adminInfo.isAdmin && (
-            <>
-              <button
-                onClick={() => setActiveTab('users')}
-                className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  activeTab === 'users'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                Users
-              </button>
-              <button
-                onClick={() => setActiveTab('mentors')}
-                className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  activeTab === 'mentors'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <UserCheck className="w-4 h-4" />
-                Mentors
-              </button>
-              <button
-                onClick={() => setActiveTab('approvals')}
-                className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  activeTab === 'approvals'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                Manage Approvals
-              </button>
-              <button
-                onClick={() => setActiveTab('sessions')}
-                className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  activeTab === 'sessions'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <Video className="w-4 h-4" />
-                Mentoring Sessions
-              </button>
-            </>
-          )}
-          {!adminInfo.isAdmin && (
-            <>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                activeTab === 'users'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              Users
-            </button>
-            <button
-                onClick={() => setActiveTab('profile')}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                  activeTab === 'profile'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-                Profile
-            </button>
-            <button
-              onClick={() => setActiveTab('sessions')}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                activeTab === 'sessions'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              <Video className="w-4 h-4" />
-              Mentoring Sessions
-            </button>
-            </>
-          )}
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex gap-4">
+            {adminInfo.isAdmin && (
+              <>
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                    activeTab === 'users'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  Users
+                </button>
+                <button
+                  onClick={() => setActiveTab('mentors')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                    activeTab === 'mentors'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  <UserCheck className="w-4 h-4" />
+                  Mentors
+                </button>
+                <button
+                  onClick={() => setActiveTab('approvals')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                    activeTab === 'approvals'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  Manage Approvals
+                </button>
+                <button
+                  onClick={() => setActiveTab('sessions')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                    activeTab === 'sessions'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  <Video className="w-4 h-4" />
+                  Mentoring Sessions
+                </button>
+              </>
+            )}
+            {!adminInfo.isAdmin && (
+              <>
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                    activeTab === 'users'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  Users
+                </button>
+                <button
+                  onClick={() => setActiveTab('profile')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                    activeTab === 'profile'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  Profile
+                </button>
+                <button
+                  onClick={() => setActiveTab('sessions')}
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                    activeTab === 'sessions'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  <Video className="w-4 h-4" />
+                  Mentoring Sessions
+                </button>
+              </>
+            )}
           </div>
+
+          {adminInfo.isAdmin && (
+            <button
+              onClick={() => {
+                const token = localStorage.getItem('adminToken')
+                const adminInfoRaw = localStorage.getItem('adminInfo')
+                const adminData = adminInfoRaw ? JSON.parse(adminInfoRaw) : {}
+                const adminId = adminData.id || ''
+                const adminEmail = adminData.email || ''
+                const trackerUrl = import.meta.env.VITE_AVAILABILITY_TRACKER_URL
+                window.open(
+                  `${trackerUrl}/sso?token=${token}&role=ADMIN&userId=${adminId}&email=${encodeURIComponent(adminEmail)}`,
+                  '_blank'
+                )
+              }}
+              className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              <Calendar className="w-4 h-4" />
+              Check Availability
+            </button>
+          )}
+        </div>
 
         {/* Content */}
         {activeTab === 'profile' && !adminInfo.isAdmin ? (
