@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Search, X, AlertCircle, UserCircle, Video } from 'lucide-react'
+import { Users, Search, X, AlertCircle, UserCircle, Video, Calendar } from 'lucide-react'
 import { StatsCardSkeleton, UserCardSkeleton } from '@/shared/ui/Skeleton'
 import MentorNavbar, { MentorNavbarRef } from '@/mentor/components/MentorNavbar'
 import MentorProfile from '@/mentor/components/MentorProfile'
@@ -248,28 +248,49 @@ export default function MentorDashboard() {
 
         {/* Tabs */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
-          <div className="flex gap-4 mb-6">
+          <div className="flex items-center justify-between gap-4 mb-6">
+            <div className="flex gap-4">
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  activeTab === 'users'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                My Mentees ({users.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('sessions')}
+                className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  activeTab === 'sessions'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                }`}
+              >
+                <Video className="w-4 h-4" />
+                Mentoring Sessions
+              </button>
+            </div>
             <button
-              onClick={() => setActiveTab('users')}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                activeTab === 'users'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-              }`}
+              type="button"
+              onClick={() => {
+                const token = localStorage.getItem('mentorToken')
+                const mentorInfo = localStorage.getItem('mentorInfo')
+                const mentor = mentorInfo ? JSON.parse(mentorInfo) : {}
+                const mentorId = mentor.id || ''
+                const trackerUrl = import.meta.env.VITE_AVAILABILITY_TRACKER_URL
+
+                window.open(
+                  `${trackerUrl}/sso?token=${token}&role=MENTOR&userId=${mentorId}`,
+                  '_blank'
+                )
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
             >
-              <Users className="w-4 h-4" />
-              My Mentees ({users.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('sessions')}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                activeTab === 'sessions'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-              }`}
-            >
-              <Video className="w-4 h-4" />
-              Mentoring Sessions
+              <Calendar className="w-4 h-4" />
+              Add Availability
             </button>
           </div>
           <div>
