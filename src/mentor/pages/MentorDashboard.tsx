@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Search, X, AlertCircle, UserCircle, Video, Calendar } from 'lucide-react'
+import { Users, Search, X, AlertCircle, UserCircle, Video, Calendar, Copy } from 'lucide-react'
+import { getAvailabilityTrackerSsoUrl } from '@/lib/availability'
 import { StatsCardSkeleton, UserCardSkeleton } from '@/shared/ui/Skeleton'
 import MentorNavbar, { MentorNavbarRef } from '@/mentor/components/MentorNavbar'
 import MentorProfile from '@/mentor/components/MentorProfile'
@@ -273,25 +274,41 @@ export default function MentorDashboard() {
                 Mentoring Sessions
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                const token = localStorage.getItem('mentorToken')
-                const mentorInfo = localStorage.getItem('mentorInfo')
-                const mentor = mentorInfo ? JSON.parse(mentorInfo) : {}
-                const mentorId = mentor.id || ''
-                const trackerUrl = import.meta.env.VITE_AVAILABILITY_TRACKER_URL
-
-                window.open(
-                  `${trackerUrl}/sso?token=${token}&role=MENTOR&userId=${mentorId}`,
-                  '_blank'
-                )
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              <Calendar className="w-4 h-4" />
-              Add Availability
-            </button>
+            <div className="inline-flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const token = localStorage.getItem('mentorToken')
+                  const mentorInfo = localStorage.getItem('mentorInfo')
+                  const mentor = mentorInfo ? JSON.parse(mentorInfo) : {}
+                  const mentorId = mentor.id || ''
+                  const mentorEmail = mentor.email || ''
+                  const url = getAvailabilityTrackerSsoUrl({ token: token || '', role: 'MENTOR', userId: mentorId, email: mentorEmail })
+                  if (url) window.location.href = url
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                <Calendar className="w-4 h-4" />
+                Add Availability
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const token = localStorage.getItem('mentorToken')
+                  const mentorInfo = localStorage.getItem('mentorInfo')
+                  const mentor = mentorInfo ? JSON.parse(mentorInfo) : {}
+                  const mentorId = mentor.id || ''
+                  const mentorEmail = mentor.email || ''
+                  const url = getAvailabilityTrackerSsoUrl({ token: token || '', role: 'MENTOR', userId: mentorId, email: mentorEmail })
+                  if (url) navigator.clipboard.writeText(url).then(() => toast.success('Link copied')).catch(() => toast.error('Failed to copy'))
+                }}
+                className="p-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-colors"
+                title="Copy availability link"
+                aria-label="Copy availability link"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div>
             {/* Users Tab */}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Briefcase, UserCheck, ShieldCheck, Shield, Video, Search, Filter, X, Trash2, Calendar } from 'lucide-react'
+import { Users, Briefcase, UserCheck, ShieldCheck, Shield, Video, Search, Filter, X, Trash2, Calendar, Copy } from 'lucide-react'
+import { getAvailabilityTrackerSsoUrl } from '@/lib/availability'
 import Pagination from '@/shared/ui/Pagination'
 import { StatsCardSkeleton, UserCardSkeleton } from '@/shared/ui/Skeleton'
 import AdminNavbar from '@/admin/components/AdminNavbar'
@@ -565,24 +566,40 @@ export default function AdminDashboard() {
           </div>
 
           {adminInfo.isAdmin && (
-            <button
-              onClick={() => {
-                const token = localStorage.getItem('adminToken')
-                const adminInfoRaw = localStorage.getItem('adminInfo')
-                const adminData = adminInfoRaw ? JSON.parse(adminInfoRaw) : {}
-                const adminId = adminData.id || ''
-                const adminEmail = adminData.email || ''
-                const trackerUrl = import.meta.env.VITE_AVAILABILITY_TRACKER_URL
-                window.open(
-                  `${trackerUrl}/sso?token=${token}&role=ADMIN&userId=${adminId}&email=${encodeURIComponent(adminEmail)}`,
-                  '_blank'
-                )
-              }}
-              className="ml-auto inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              <Calendar className="w-4 h-4" />
-              Check Availability
-            </button>
+            <div className="ml-auto inline-flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const token = localStorage.getItem('adminToken')
+                  const adminInfoRaw = localStorage.getItem('adminInfo')
+                  const adminData = adminInfoRaw ? JSON.parse(adminInfoRaw) : {}
+                  const adminId = adminData.id || ''
+                  const adminEmail = adminData.email || ''
+                  const url = getAvailabilityTrackerSsoUrl({ token: token || '', role: 'ADMIN', userId: adminId, email: adminEmail })
+                  if (url) window.location.href = url
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
+                <Calendar className="w-4 h-4" />
+                Check Availability
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const token = localStorage.getItem('adminToken')
+                  const adminInfoRaw = localStorage.getItem('adminInfo')
+                  const adminData = adminInfoRaw ? JSON.parse(adminInfoRaw) : {}
+                  const adminId = adminData.id || ''
+                  const adminEmail = adminData.email || ''
+                  const url = getAvailabilityTrackerSsoUrl({ token: token || '', role: 'ADMIN', userId: adminId, email: adminEmail })
+                  if (url) navigator.clipboard.writeText(url).then(() => toast.success('Link copied')).catch(() => toast.error('Failed to copy'))
+                }}
+                className="p-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-colors"
+                title="Copy availability link"
+                aria-label="Copy availability link"
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
           )}
         </div>
 
