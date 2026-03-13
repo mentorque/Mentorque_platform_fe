@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { listenToAuth } from '@/lib/auth';
+import { apiClient } from '@/lib/apiClient';
 import { Briefcase, MapPin, ExternalLink, Trash2, Calendar, Building2, RefreshCw, FileText, Clock, Phone, XCircle, ChevronDown, Flame, Trophy, Target, Zap, Plus, X, ChevronLeft, ChevronRight, BarChart3, PieChart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Protected from '@/shared/components/Protected';
@@ -20,7 +21,6 @@ interface AppliedJob {
   updatedAt: string;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const STATUS_OPTIONS = [
   { 
@@ -73,16 +73,18 @@ export default function AppliedJobs() {
   const [editingGoal, setEditingGoal] = useState(false);
   const [tempGoal, setTempGoal] = useState<number>(3);
   const [updatingGoal, setUpdatingGoal] = useState(false);
-  const auth = getAuth();
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = listenToAuth(async (user) => {
       if (user) {
+        setAuthReady(true);
         await Promise.all([
-          fetchAppliedJobs(user),
-          fetchDailyGoal(user)
+          fetchAppliedJobs(),
+          fetchDailyGoal()
         ]);
       } else {
+        setAuthReady(false);
         setLoading(false);
       }
     });
@@ -92,33 +94,20 @@ export default function AppliedJobs() {
 
   // Refetch when time period changes
   useEffect(() => {
-    if (auth.currentUser) {
+    if (authReady) {
       fetchAppliedJobs();
     }
   }, [timePeriod]);
 
-  const fetchDailyGoal = async (user?: any) => {
+  const fetchDailyGoal = async () => {
     try {
-      const currentUser = user || auth.currentUser;
-      if (!currentUser) return;
-
-      const token = await currentUser.getIdToken();
-      const response = await fetch(`${API_URL}/api/applied-jobs/goal`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch daily goal');
-      }
-
+      const response = await apiClient.get('/api/applied-jobs/goal');
+      if (!response.ok) throw new Error('Failed to fetch daily goal');
       const data = await response.json();
       setGoalPerDay(data.goalPerDay || 3);
       setTempGoal(data.goalPerDay || 3);
     } catch (error: any) {
       console.error('Error fetching daily goal:', error);
-      // Use default value of 3 if fetch fails
       setGoalPerDay(3);
       setTempGoal(3);
     }
@@ -132,21 +121,7 @@ export default function AppliedJobs() {
 
     setUpdatingGoal(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        toast.error('Not authenticated');
-        setUpdatingGoal(false);
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/api/applied-jobs/goal`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ goalPerDay: tempGoal })
-      });
+      const response = await apiClient.patch('/api/applied-jobs/goal', { goalPerDay: tempGoal });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -166,24 +141,12 @@ export default function AppliedJobs() {
     }
   };
 
-  const fetchAppliedJobs = async (user?: any) => {
+  const fetchAppliedJobs = async () => {
     try {
-      const currentUser = user || auth.currentUser;
-      if (!currentUser) {
-        setLoading(false);
-        return;
-      }
-
-      const token = await currentUser.getIdToken();
-      const url = timePeriod === 'all' 
-        ? `${API_URL}/api/applied-jobs`
-        : `${API_URL}/api/applied-jobs?period=${timePeriod}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const path = timePeriod === 'all'
+        ? '/api/applied-jobs'
+        : `/api/applied-jobs?period=${timePeriod}`;
+      const response = await apiClient.get(path);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -206,21 +169,7 @@ export default function AppliedJobs() {
   const updateJobStatus = async (jobId: string, newStatus: string) => {
     setUpdatingJobId(jobId);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        toast.error('Not authenticated');
-        setUpdatingJobId(null);
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/api/applied-jobs/${jobId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
+      const response = await apiClient.patch(`/api/applied-jobs/${jobId}/status`, { status: newStatus });
 
       if (!response.ok) {
         const error = await response.json();
@@ -251,23 +200,8 @@ export default function AppliedJobs() {
     }
 
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        toast.error('Not authenticated');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/api/applied-jobs/${jobId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete job');
-      }
-
+      const response = await apiClient.delete(`/api/applied-jobs/${jobId}`);
+      if (!response.ok) throw new Error('Failed to delete job');
       setJobs(jobs.filter(job => job.id !== jobId));
       toast.success('Job deleted successfully');
       // Dispatch event to notify admin/mentor pages to refresh stats
@@ -286,13 +220,6 @@ export default function AppliedJobs() {
 
     setSubmitting(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        toast.error('Not authenticated');
-        setSubmitting(false);
-        return;
-      }
-
       const jobData = {
         id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         title: newJob.title.trim(),
@@ -302,15 +229,7 @@ export default function AppliedJobs() {
         status: newJob.status,
         type: newJob.type
       };
-
-      const response = await fetch(`${API_URL}/api/applied-jobs`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(jobData)
-      });
+      const response = await apiClient.post('/api/applied-jobs', jobData);
 
       if (!response.ok) {
         const errorData = await response.json();

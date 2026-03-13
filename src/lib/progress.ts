@@ -1,5 +1,5 @@
 // src/lib/progress.ts
-import { auth } from "@/lib/firebase";
+import { getTokenForApi } from "@/lib/auth";
 
 export type WeekItem = {
   week: number;
@@ -86,16 +86,14 @@ export const DEFAULT_WEEKS: WeekItem[] = [
   },
 ];
 
-// API base URL - adjust based on your backend URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://platformbackend-production.up.railway.app';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-async function getAuthHeaders() {
-  const user = auth.currentUser;
-  if (!user) throw new Error('User not authenticated');
-  
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const token = await getTokenForApi();
+  if (!token) throw new Error("User not authenticated");
   return {
-    'x-user-id': user.uid,
-    'Content-Type': 'application/json'
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
   };
 }
 
@@ -108,8 +106,8 @@ export async function initUserProgressIfMissing(uid: string) {
 export async function getUserProgress(): Promise<WeekItem[]> {
   const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/progress`, {
-    method: 'GET',
-    headers
+    method: "GET",
+    headers,
   });
 
   if (!response.ok) {

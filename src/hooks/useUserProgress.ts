@@ -1,7 +1,6 @@
 // src/hooks/useUserProgress.ts
 import { useEffect, useState } from "react";
-import { auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { listenToAuth } from "@/lib/auth";
 import { onUserProgress, updateWeekDone, updateWeekNotes, getUserProgress } from "@/lib/progress";
 import type { WeekItem } from "@/lib/progress";
 
@@ -11,7 +10,7 @@ export function useUserProgress() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stopAuth = onAuthStateChanged(auth, (u) => setUid(u ? u.uid : null));
+    const stopAuth = listenToAuth((u) => setUid(u ? (u.uid as string) : null));
     return () => stopAuth();
   }, []);
 

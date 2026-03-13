@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { signInWithGoogle } from "@/lib/auth"
 import { auth } from "@/lib/firebase"
+import { getWildcardToken } from "@/lib/wildcardAuth"
 
 export default function SignIn() {
   const [error, setError] = useState<string | null>(null)
@@ -8,7 +9,11 @@ export default function SignIn() {
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((u) => {
-      if (u) window.location.href = "/dashboard"
+      if (u) {
+        window.location.href = "/dashboard"
+        return
+      }
+      if (getWildcardToken()) window.location.href = "/dashboard"
     })
     return () => unsub()
   }, [])

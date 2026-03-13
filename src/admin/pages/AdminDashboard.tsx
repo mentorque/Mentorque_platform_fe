@@ -379,7 +379,7 @@ export default function AdminDashboard() {
       const data = await res.json().catch(() => ({}))
 
       if (res.ok && data.success) {
-        toast.success(`Synced ${data.synced} user(s) from Firebase. ${data.failed ? `${data.failed} failed.` : ''}`)
+        toast.success(`Synced from Firebase. New users added only if not already in database. ${data.synced} processed. ${data.failed ? `${data.failed} failed.` : ''}`)
         if (data.errors?.length) {
           console.warn('Sync errors:', data.errors)
         }

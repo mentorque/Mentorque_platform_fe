@@ -2,7 +2,6 @@ import { logOut } from "@/lib/auth"
 import { getAvailabilityTrackerSsoUrl } from "@/lib/availability"
 import ThemeToggle from "./ThemeToggle"
 import { useState } from "react"
-import { Copy } from "lucide-react"
 import toast from "react-hot-toast"
 
 export default function Navbar() {
@@ -12,72 +11,30 @@ export default function Navbar() {
 
   const handleAvailabilityClick = async () => {
     try {
-      const { auth } = await import('@/lib/firebase')
-      const currentUser = auth.currentUser
-      if (!currentUser) {
-        console.error('No authenticated user found for availability SSO')
-        return
-      }
-
-      const firebaseToken = await currentUser.getIdToken()
-
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/sso-token`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${firebaseToken}`,
-        },
-      })
-
-      if (!res.ok) {
-        console.error('Failed to create SSO token', res.status, res.statusText)
-        return
-      }
-
-      const { token } = await res.json()
-      if (!token) {
-        console.error('SSO token missing in response')
-        return
-      }
-
-      const userId = currentUser.uid
-      const email = currentUser.email || ''
-      const url = getAvailabilityTrackerSsoUrl({ token, role: 'USER', userId, email })
-      if (url) window.location.href = url
-    } catch (error) {
-      console.error('Error opening availability tracker:', error)
-    }
-  }
-
-  const handleCopyAvailabilityLink = async () => {
-    try {
-      const { auth } = await import('@/lib/firebase')
-      const currentUser = auth.currentUser
-      if (!currentUser) {
-        toast.error('Sign in to copy availability link')
-        return
-      }
-      const firebaseToken = await currentUser.getIdToken()
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/sso-token`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${firebaseToken}` },
-      })
+      const { apiClient } = await import('@/lib/apiClient')
+      const { getWildcardEmail } = await import('@/lib/wildcardAuth')
+      const res = await apiClient.post('/api/users/sso-token')
       if (!res.ok) {
         toast.error('Failed to get link')
         return
       }
-      const { token } = await res.json()
+      const data = await res.json()
+      const token = data.token
+      const userId = data.userId || ''
+      const email = data.email ?? getWildcardEmail() ?? ''
       if (!token) {
         toast.error('Failed to get link')
         return
       }
-      const userId = currentUser.uid
-      const email = currentUser.email || ''
       const url = getAvailabilityTrackerSsoUrl({ token, role: 'USER', userId, email })
-      if (!url) { toast.error('Tracker URL not configured'); return }
+      if (!url) {
+        toast.error('Tracker URL not configured')
+        return
+      }
       await navigator.clipboard.writeText(url)
       toast.success('Availability link copied')
     } catch (error) {
-      console.error('Copy availability link:', error)
+      console.error('Availability copy:', error)
       toast.error('Failed to copy link')
     }
   }
@@ -115,24 +72,14 @@ export default function Navbar() {
               <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="/my-mentor">My Mentor</a>
               <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="/app-passwords">App Passwords</a>
               <a className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm" href="https://tools.mentorquedu.com/menu" target="_blank" rel="noopener noreferrer">Resume Compiler</a>
-            <span className="inline-flex items-center gap-1">
               <button
                 type="button"
                 className="hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 drop-shadow-sm"
                 onClick={handleAvailabilityClick}
+                title="Copy availability link"
               >
                 Availability
               </button>
-              <button
-                type="button"
-                onClick={handleCopyAvailabilityLink}
-                className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                title="Copy availability link"
-                aria-label="Copy availability link"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
-            </span>
             </nav>
 
             {/* Desktop CTA Button and Controls */}
@@ -225,27 +172,17 @@ export default function Navbar() {
                   >
                     Resume Compiler
                   </a>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="flex-1 text-left text-gray-800 dark:text-gray-200 font-medium hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 py-3 px-4 rounded-lg hover:bg-white/10 dark:hover:bg-gray-800/20 text-base"
-                      onClick={() => {
-                        closeMobileMenu()
-                        handleAvailabilityClick()
-                      }}
-                    >
-                      Availability
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { closeMobileMenu(); handleCopyAvailabilityLink() }}
-                      className="p-2 rounded-lg hover:bg-white/10 dark:hover:bg-gray-800/20"
-                      title="Copy availability link"
-                      aria-label="Copy availability link"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="w-full text-left text-gray-800 dark:text-gray-200 font-medium hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 py-3 px-4 rounded-lg hover:bg-white/10 dark:hover:bg-gray-800/20 text-base"
+                    onClick={() => {
+                      closeMobileMenu()
+                      handleAvailabilityClick()
+                    }}
+                    title="Copy availability link"
+                  >
+                    Availability
+                  </button>
                 </div>
 
                 {/* Mobile Action Buttons - Matching Desktop Layout */}

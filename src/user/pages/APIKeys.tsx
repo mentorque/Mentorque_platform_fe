@@ -1,6 +1,7 @@
 // src/pages/APIKeys.tsx
 import { useState, useEffect } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { listenToAuth } from '@/lib/auth';
+import { apiClient } from '@/lib/apiClient';
 import { Eye, EyeOff, Copy, Trash2, Plus, Key, CheckCircle2, FolderOpen, Download, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Protected from '@/shared/components/Protected';
@@ -14,8 +15,6 @@ interface APIKey {
   lastUsed?: string;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
 export default function APIKeys() {
   const [apiKeys, setApiKeys] = useState<APIKey[]>([]);
   const [showKey, setShowKey] = useState<{ [key: string]: boolean }>({});
@@ -24,17 +23,13 @@ export default function APIKeys() {
   const [loading, setLoading] = useState(true);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
-  const auth = getAuth();
 
   useEffect(() => {
-    // Listen to auth state changes and fetch keys when user is authenticated
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = listenToAuth(async (user) => {
       if (user) {
-        console.log('Auth state changed: User authenticated, fetching verification status...');
-        await checkVerificationStatus(user);
-        await fetchAPIKeys(user);
+        await checkVerificationStatus();
+        await fetchAPIKeys();
       } else {
-        console.log('Auth state changed: No user authenticated');
         setLoading(false);
       }
     });
@@ -42,18 +37,9 @@ export default function APIKeys() {
     return () => unsubscribe();
   }, []);
 
-  const checkVerificationStatus = async (user?: any) => {
+  const checkVerificationStatus = async () => {
     try {
-      const currentUser = user || auth.currentUser;
-      if (!currentUser) return;
-
-      const token = await currentUser.getIdToken();
-      const res = await fetch(`${API_URL}/api/users/me/verification`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
+      const res = await apiClient.get('/api/users/me/verification');
       if (res.ok) {
         const data = await res.json();
         setIsVerified(data.verifiedByAdmin);
@@ -66,33 +52,14 @@ export default function APIKeys() {
     }
   };
 
-  const fetchAPIKeys = async (user?: any) => {
+  const fetchAPIKeys = async () => {
     try {
-      // Use the provided user or get from auth.currentUser
-      const currentUser = user || auth.currentUser;
-      if (!currentUser) {
-        console.log('No authenticated user');
-        setLoading(false);
-        return;
-      }
-
-      const token = await currentUser.getIdToken();
-      console.log('Fetching app passwords for user:', currentUser.email);
-
-      const response = await fetch(`${API_URL}/api/keys`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
+      const response = await apiClient.get('/api/keys');
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Failed to fetch app passwords:', errorData);
         throw new Error(errorData.error || 'Failed to fetch app passwords');
       }
-
       const data = await response.json();
-      console.log('App passwords fetched successfully:', data.keys?.length || 0, 'passwords');
       setApiKeys(data.keys || []);
     } catch (error: any) {
       console.error('Error fetching app passwords:', error);
@@ -107,23 +74,10 @@ export default function APIKeys() {
       toast.error('Please enter a key name');
       return;
     }
-    
+
     setIsCreating(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        toast.error('Not authenticated');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/api/keys`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name: newKeyName })
-      });
+      const response = await apiClient.post('/api/keys', { name: newKeyName });
 
       if (!response.ok) {
         const error = await response.json();
@@ -163,18 +117,7 @@ export default function APIKeys() {
     }
 
     try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        toast.error('Not authenticated');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/api/keys/${keyId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await apiClient.delete(`/api/keys/${keyId}`);
 
       if (!response.ok) {
         throw new Error('Failed to delete app password');
@@ -207,11 +150,6 @@ export default function APIKeys() {
   };
 
   const handleDownloadZip = () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      toast.error('Please sign in to download');
-      return;
-    }
     // File in public folder - direct download, no backend/CDN
     const filename = 'Mentorque-Extension-Feb-23.zip';
     const a = document.createElement('a');

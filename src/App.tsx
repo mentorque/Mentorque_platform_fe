@@ -16,6 +16,7 @@ import APIKeys from '@/user/pages/APIKeys'
 import AppliedJobs from '@/user/pages/AppliedJobs'
 import MyMentor from '@/user/pages/MyMentor'
 import Demo from '@/user/pages/Demo'
+import AuthCallback from '@/pages/AuthCallback'
 
 // Admin pages
 import AdminLogin from '@/admin/pages/AdminLogin'
@@ -109,6 +110,7 @@ function App() {
           {/* ==================== USER ROUTES ==================== */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/progress" element={<Progress />} />
           <Route path="/resume-review" element={<ResumeReview />} />

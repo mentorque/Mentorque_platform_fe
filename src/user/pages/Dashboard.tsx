@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Navbar from "@/shared/components/Navbar";
 import Protected from "@/shared/components/Protected";
 import { auth, db } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { listenToAuth } from "@/lib/auth";
+import { getWildcardName, getWildcardEmail } from "@/lib/wildcardAuth";
 import { doc, getDoc } from "firebase/firestore";
 import { CheckCircle, Star, Users, TrendingUp, Bot, FileText, MessageSquare } from "lucide-react";
 import { useUserProgress } from "@/hooks/useUserProgress";
@@ -21,15 +22,19 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) return; // Protected will redirect if needed
+    const unsub = listenToAuth(async (u) => {
+      if (!u) return;
+
+      const wildcardUid = (u as { uid?: string }).uid;
+      if (wildcardUid === "wildcard") {
+        setName(getWildcardName() || getWildcardEmail() || "User");
+        return;
+      }
 
       try {
-        // 1) ensure freshest auth data
         await u.reload();
         let display = u.displayName || "";
 
-        // 2) if no displayName, try Firestore profile
         if (!display) {
           const ref = doc(db, "users", u.uid);
           const snap = await getDoc(ref);
@@ -38,7 +43,6 @@ export default function Dashboard() {
           }
         }
 
-        // 3) final fallbacks
         setName(display || u.email || "User");
       } catch (e) {
         console.error("Failed to resolve user name:", e);

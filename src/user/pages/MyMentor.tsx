@@ -2,11 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import Navbar from '@/shared/components/Navbar'
 import Protected from '@/shared/components/Protected'
 import UserProgress from '@/user/components/UserProgress'
-import { UserCircle, Clock, Briefcase, Video, ExternalLink, FileText } from 'lucide-react'
-import { auth } from '@/lib/firebase'
-import { onAuthStateChanged } from 'firebase/auth'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+import { UserCircle, Clock, Briefcase, Video, ExternalLink } from 'lucide-react'
+import { listenToAuth } from '@/lib/auth'
+import { apiClient } from '@/lib/apiClient'
 
 interface Mentor {
   id: string
@@ -87,14 +85,11 @@ export default function MyMentor() {
   )
 
   useEffect(() => {
-    // Wait for auth state to be ready before loading data
-    // Protected component ensures user is authenticated, but we need to wait for auth.currentUser
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = listenToAuth(async (user) => {
       if (user) {
-        console.log('✅ Auth ready, user authenticated:', user.email)
-        await loadData(user)
+        console.log('✅ Auth ready, user authenticated:', (user as any).email ?? 'wildcard')
+        await loadData()
       } else {
-        console.log('⚠️ No user authenticated - Protected should have redirected')
         setLoading(false)
         setError('Not authenticated. Please sign in.')
       }
@@ -103,36 +98,17 @@ export default function MyMentor() {
     return () => unsubscribe()
   }, [])
 
-  const loadData = async (user?: any) => {
+  const loadData = async () => {
     try {
       setLoading(true)
       setError(null)
-      
-      const currentUser = user || auth.currentUser
-      if (!currentUser) {
-        console.error('❌ No authenticated user found')
-        setError('Not authenticated. Please sign in.')
-        setLoading(false)
-        return
-      }
 
-      console.log('🔐 Getting Firebase token for user:', currentUser.email)
-      const token = await currentUser.getIdToken()
-      console.log('✅ Token obtained, length:', token.length)
-
-      // Load user status to get scheduled calls
       try {
-        const statusRes = await fetch(`${API_URL}/api/users/me/status`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        const statusRes = await apiClient.get('/api/users/me/status')
         if (statusRes.ok) {
           const statusData = await statusRes.json()
           const status = statusData.userStatus
           const calls: ScheduledCall[] = []
-          
-          // Check each call (1-5)
           for (let i = 1; i <= 5; i++) {
             const scheduledAtField = `${
               i === 1 ? 'first' : i === 2 ? 'second' : i === 3 ? 'third' : i === 4 ? 'fourth' : 'fifth'
@@ -143,7 +119,6 @@ export default function MyMentor() {
             const completedAtField = `${
               i === 1 ? 'first' : i === 2 ? 'second' : i === 3 ? 'third' : i === 4 ? 'fourth' : 'fifth'
             }MentorCallCompletedAt`
-            
             if (status[scheduledAtField] && !status[completedAtField]) {
               calls.push({
                 callNumber: i,
@@ -152,69 +127,42 @@ export default function MyMentor() {
               })
             }
           }
-          
-          // Sort by scheduled date
           calls.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
           setScheduledCalls(calls)
         }
       } catch (err) {
         console.error('Error loading scheduled calls:', err)
       }
-      await loadMentorNotes(token)
+      await loadMentorNotes()
 
-      // Load assigned mentor first
       let mentor: Mentor | null = null
       try {
-        console.log('🔍 Loading assigned mentor...')
-        const mentorRes = await fetch(`${API_URL}/api/users/me/mentor`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
+        const mentorRes = await apiClient.get('/api/users/me/mentor')
         if (mentorRes.ok) {
           const mentorData = await mentorRes.json()
           mentor = mentorData.mentor
-          console.log('✅ Assigned mentor loaded:', mentor?.name)
           setAssignedMentor(mentor)
         } else if (mentorRes.status === 404) {
-          console.log('⚠️ No mentor assigned to this user')
           setAssignedMentor(null)
-      } else if (mentorRes.status === 401) {
-        console.error('❌ Authentication failed - token invalid or expired')
-        setError('Authentication failed. Please sign out and sign in again.')
+        } else if (mentorRes.status === 401) {
+          setError('Authentication failed. Please sign out and sign in again.')
           setLoading(false)
           return
-      } else {
-        const errorData = await mentorRes.json().catch(() => ({}))
-        console.error('❌ Failed to load assigned mentor:', mentorRes.status, errorData)
-        // Don't throw here, just log - user might not have a mentor assigned
         }
       } catch (err: any) {
-        console.error('❌ Error loading assigned mentor:', err)
-        // Don't set error here, just log it - user might not have a mentor assigned
+        console.error('Error loading assigned mentor:', err)
       }
     } catch (err: any) {
-      console.error('❌ Error loading data:', err)
+      console.error('Error loading data:', err)
       setError(err.message || 'Failed to load mentor information')
     } finally {
       setLoading(false)
     }
   }
 
-  const loadMentorNotes = async (token?: string) => {
-    if (!token) {
-      setMentorNotes(getDefaultCallNotes())
-      return
-    }
-
+  const loadMentorNotes = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/users/me/mentor-session-notes`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
+      const res = await apiClient.get('/api/users/me/mentor-session-notes')
       if (res.ok) {
         const data = await res.json()
         setMentorNotes(data.calls?.length ? data.calls : getDefaultCallNotes())
