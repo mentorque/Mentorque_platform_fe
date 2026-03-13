@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Briefcase, UserCheck, ShieldCheck, Shield, Video, Search, Filter, X, Trash2, Calendar, Copy } from 'lucide-react'
+import { Users, Briefcase, UserCheck, ShieldCheck, Shield, Video, Search, Filter, X, Trash2, Calendar, Copy, RefreshCw } from 'lucide-react'
 import { getAvailabilityTrackerSsoUrl } from '@/lib/availability'
 import Pagination from '@/shared/ui/Pagination'
 import { StatsCardSkeleton, UserCardSkeleton } from '@/shared/ui/Skeleton'
@@ -101,6 +101,7 @@ export default function AdminDashboard() {
     stats: MentorStatsPayload | null
     loading: boolean
   } | null>(null)
+  const [syncingFirebase, setSyncingFirebase] = useState(false)
 
   useEffect(() => {
     checkAuthAndLoadData()
@@ -360,6 +361,37 @@ export default function AdminDashboard() {
       toast.error(error.message || 'Failed to delete mentor')
     } finally {
       setDeletingMentor(null)
+    }
+  }
+
+  const handleSyncFirebaseUsers = async () => {
+    try {
+      setSyncingFirebase(true)
+      const token = localStorage.getItem('adminToken')
+      const headers: HeadersInit = {}
+      if (token) headers['Authorization'] = `Bearer ${token}`
+
+      const res = await fetch(`${API_URL}${apiPrefix}/sync-firebase-users`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (res.ok && data.success) {
+        toast.success(`Synced ${data.synced} user(s) from Firebase. ${data.failed ? `${data.failed} failed.` : ''}`)
+        if (data.errors?.length) {
+          console.warn('Sync errors:', data.errors)
+        }
+        await loadUsers(usersPage, undefined, usersSearch, usersVerifiedFilter, usersMentorFilter)
+        await loadStats()
+      } else {
+        toast.error(data.message || data.error || 'Sync failed')
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Sync failed')
+    } finally {
+      setSyncingFirebase(false)
     }
   }
 
@@ -626,6 +658,8 @@ export default function AdminDashboard() {
             onVerifiedFilterChange={setUsersVerifiedFilter}
             mentorFilter={usersMentorFilter}
             onMentorFilterChange={setUsersMentorFilter}
+            onSyncFirebase={adminInfo.isAdmin ? handleSyncFirebaseUsers : undefined}
+            syncingFirebase={syncingFirebase}
           />
         ) : (
           <MentorsList
@@ -880,6 +914,8 @@ function UsersList({
   onVerifiedFilterChange,
   mentorFilter,
   onMentorFilterChange,
+  onSyncFirebase,
+  syncingFirebase,
 }: {
   users: User[]
   loading: boolean
@@ -895,6 +931,8 @@ function UsersList({
   onVerifiedFilterChange: (value: string) => void
   mentorFilter: string
   onMentorFilterChange: (value: string) => void
+  onSyncFirebase?: () => Promise<void>
+  syncingFirebase?: boolean
 }) {
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + users.length
@@ -910,17 +948,40 @@ function UsersList({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
       <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Users</h2>
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-            >
-              <X className="w-4 h-4" />
-              Clear filters
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {onSyncFirebase && (
+              <button
+                type="button"
+                onClick={onSyncFirebase}
+                disabled={syncingFirebase}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                title="Sync all Firebase Auth users into Neon DB"
+              >
+                {syncingFirebase ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Sync Firebase users
+                  </>
+                )}
+              </button>
+            )}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+              >
+                <X className="w-4 h-4" />
+                Clear filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Search and Filter Bar */}
