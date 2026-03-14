@@ -2,7 +2,7 @@ import { logOut } from "@/lib/auth"
 import { getAvailabilityTrackerSsoUrl } from "@/lib/availability"
 import ThemeToggle from "./ThemeToggle"
 import { useState } from "react"
-import toast from "react-hot-toast"
+import { toast } from "react-hot-toast"
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -31,8 +31,7 @@ export default function Navbar() {
         toast.error('Tracker URL not configured')
         return
       }
-      await navigator.clipboard.writeText(url)
-      toast.success('Availability link copied')
+      window.location.href = url
     } catch (error) {
       console.error('Availability copy:', error)
       toast.error('Failed to copy link')
