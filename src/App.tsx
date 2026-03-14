@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { Toaster } from 'react-hot-toast'
 
 // User pages
 import SignIn from '@/user/pages/SignIn'
@@ -37,6 +38,7 @@ import PublicMentorRoute from '@/mentor/components/PublicMentorRoute'
 function App() {
   return (
     <ThemeProvider>
+    <Toaster position="top-right" /> 
       <Router>
         <Routes>
           {/* ==================== ADMIN ROUTES ==================== */}
